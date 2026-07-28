@@ -2,29 +2,42 @@
   "id": "mini-games",
   "name": "Mini Games",
   "description": "A little arcade inside Agent Code — starting with a fully-featured, casino-grade Blackjack.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 1,
   "entry": "dist/index.js",
   "activationEvents": [
-    "onCommand:games.open",
-    "onCommand:games.blackjack"
+    "onCommand:mini-games.open",
+    "onCommand:mini-games.blackjack"
   ],
   "contributes": {
     "commands": [
       {
-        "id": "games.open",
+        "id": "mini-games.open",
         "title": "Play Mini Games",
-        "keywords": ["game", "arcade", "play", "break", "cards", "blackjack"]
+        "keywords": [
+          "game",
+          "arcade",
+          "play",
+          "break",
+          "cards",
+          "blackjack"
+        ]
       },
       {
-        "id": "games.blackjack",
+        "id": "mini-games.blackjack",
         "title": "Play Blackjack",
-        "keywords": ["blackjack", "21", "cards", "casino", "game"]
+        "keywords": [
+          "blackjack",
+          "21",
+          "cards",
+          "casino",
+          "game"
+        ]
       }
     ],
     "views": [
       {
-        "id": "games.main",
+        "id": "mini-games.main",
         "title": "Mini Games",
         "mount": "modal"
       }

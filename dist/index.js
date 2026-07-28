@@ -6553,8 +6553,8 @@ function Rp(e) {
 const { activate: Mp, deactivate: Dp } = {
   async activate(e) {
     e.subscriptions.push(
-      e.registerView("games.main", Rp(e.api)),
-      e.registerCommand("games.blackjack", () => Ut.show("blackjack"))
+      e.registerView("mini-games.main", Rp(e.api)),
+      e.registerCommand("mini-games.blackjack", () => Ut.show("blackjack"))
     );
   },
   deactivate() {

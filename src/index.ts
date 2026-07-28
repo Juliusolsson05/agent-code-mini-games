@@ -14,8 +14,8 @@ import { mountMiniGames } from './view/mount'
 export const { activate, deactivate } = defineExtension({
   async activate(context: ExtensionContext): Promise<void> {
     context.subscriptions.push(
-      context.registerView('games.main', mountMiniGames(context.api)),
-      context.registerCommand('games.blackjack', () => router.show('blackjack')),
+      context.registerView('mini-games.main', mountMiniGames(context.api)),
+      context.registerCommand('mini-games.blackjack', () => router.show('blackjack')),
     )
   },
 
