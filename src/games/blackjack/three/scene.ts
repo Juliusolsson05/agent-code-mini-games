@@ -45,23 +45,6 @@ type ChipEntry = {
   pos: THREE.Vector3
 }
 
-/** Rounded-rectangle Shape for the felt / table so corners are real geometry. */
-function roundedRect(w: number, h: number, r: number): THREE.Shape {
-  const s = new THREE.Shape()
-  const x = -w / 2
-  const y = -h / 2
-  s.moveTo(x + r, y)
-  s.lineTo(x + w - r, y)
-  s.quadraticCurveTo(x + w, y, x + w, y + r)
-  s.lineTo(x + w, y + h - r)
-  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  s.lineTo(x + r, y + h)
-  s.quadraticCurveTo(x, y + h, x, y + h - r)
-  s.lineTo(x, y + r)
-  s.quadraticCurveTo(x, y, x + r, y)
-  return s
-}
-
 const VIGNETTE_SHADER = {
   uniforms: { tDiffuse: { value: null as THREE.Texture | null }, strength: { value: 1.05 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
@@ -168,30 +151,33 @@ export class BlackjackScene {
   }
 
   private buildTable(): void {
-    // Wooden base — an extruded rounded rectangle with a beveled top edge = the rail.
-    const baseShape = roundedRect(16.4, 11, 1.6)
-    const base = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(baseShape, { depth: 0.7, bevelEnabled: true, bevelSize: 0.22, bevelThickness: 0.18, bevelSegments: 3 }),
-      new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.5, metalness: 0.05 }),
+    // Two stacked planes so the layering is unambiguous: the wood shows as a border
+    // just BELOW the felt, the felt is the top surface everything sits on. Planes give
+    // clean 0..1 UVs so the felt texture (with its baked house text) maps exactly once.
+    const woodTex = woodTexture()
+    woodTex.repeat.set(3, 2)
+    const wood = new THREE.Mesh(
+      new THREE.PlaneGeometry(16.8, 11),
+      new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.5, metalness: 0.06 }),
     )
-    base.rotation.x = -Math.PI / 2
-    base.position.y = -0.7
-    base.receiveShadow = true
-    this.scene.add(base)
+    wood.rotation.x = -Math.PI / 2
+    wood.position.y = -0.05
+    wood.receiveShadow = true
+    this.scene.add(wood)
 
-    // Felt — a rounded plane inset on top of the base.
+    const feltNrm = feltNormal()
     const felt = new THREE.Mesh(
-      new THREE.ShapeGeometry(roundedRect(14.6, 9.4, 1.2)),
+      new THREE.PlaneGeometry(15, 9.5),
       new THREE.MeshStandardMaterial({
         map: feltTexture(),
-        normalMap: feltNormal(),
-        normalScale: new THREE.Vector2(0.35, 0.35),
-        roughness: 0.98,
+        normalMap: feltNrm,
+        normalScale: new THREE.Vector2(0.3, 0.3),
+        roughness: 0.97,
         metalness: 0,
       }),
     )
     felt.rotation.x = -Math.PI / 2
-    felt.position.y = 0.001
+    felt.position.y = 0
     felt.receiveShadow = true
     this.scene.add(felt)
   }
@@ -236,7 +222,7 @@ export class BlackjackScene {
       cards.forEach((card, i) => {
         desired.add(card.id)
         const x = xCenter + (i - (n - 1) / 2) * FAN
-        const pos = new THREE.Vector3(x, CT / 2 + i * 0.004, z + i * 0.16)
+        const pos = new THREE.Vector3(x, CT / 2 + 0.012 + i * 0.006, z + i * 0.16)
         const faceDown = holeHidden && i === 1
         let entry = this.cards.get(card.id)
         if (!entry) {
@@ -297,7 +283,7 @@ export class BlackjackScene {
         const mesh = this.makeChip(denom)
         mesh.position.set(0.2, 4 + level, BET_Z) // drops in from above
         this.scene.add(mesh)
-        this.chips.push({ mesh, pos: new THREE.Vector3(0, CHIP_H / 2 + level * CHIP_H, BET_Z) })
+        this.chips.push({ mesh, pos: new THREE.Vector3(0, 0.02 + CHIP_H / 2 + level * CHIP_H, BET_Z) })
         rem -= denom
         level += 1
       }
