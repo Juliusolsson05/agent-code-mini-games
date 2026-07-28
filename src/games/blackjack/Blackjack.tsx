@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AgentCodeApiV1 } from 'agent-code-extension-api'
 
+import { CardBack } from '../../cards/Back'
 import { Card as CardView } from '../../cards/Card'
 import { Chip, CHIP_VALUES, type ChipValue } from '../../chips/Chip'
 import { Table } from '../../table/Table'
@@ -38,27 +39,89 @@ function outcomeLabel(o: HandOutcome): { text: string; kind: string } | null {
   }
 }
 
-/** One hand of cards, fanned with overlap. The hole card key includes its face-down
- *  flag so revealing it remounts and re-plays the deal animation as a flip. */
+/** A genuine 3D flip: the container rotates 180° on Y, swapping a back face for the
+ *  card face. Used for the dealer's hole card so the reveal is a real card turn. */
+function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
+  return (
+    <span className="mg-card-wrap">
+      <span className={`mg-flip${revealed ? ' revealed' : ''}`}>
+        <span className="mg-flip-face mg-flip-back">
+          <CardBack className="mg-card" />
+        </span>
+        <span className="mg-flip-face mg-flip-front">
+          <CardView rank={card.rank} suit={card.suit} className="mg-card" />
+        </span>
+      </span>
+    </span>
+  )
+}
+
+/** One hand, fanned with overlap. The dealer's hole card (index 1) flips on reveal;
+ *  all other cards slide in on deal. */
 function HandView({
   cards,
+  flipHole = false,
   holeHidden = false,
-  active = false,
 }: {
   cards: Card[]
+  flipHole?: boolean
   holeHidden?: boolean
-  active?: boolean
 }) {
   return (
-    <div className={`mg-cards${active ? ' active' : ''}`}>
-      {cards.map((c, i) => {
-        const faceDown = holeHidden && i === 1
-        return (
-          <span key={`${c.id}-${faceDown}`} className="mg-card-wrap" style={{ ['--i' as string]: i }}>
-            <CardView rank={c.rank} suit={c.suit} faceDown={faceDown} className="mg-card" />
+    <div className="mg-cards">
+      {cards.map((c, i) =>
+        flipHole && i === 1 ? (
+          <FlipCard key={c.id} card={c} revealed={!holeHidden} />
+        ) : (
+          <span key={c.id} className="mg-card-wrap" style={{ ['--i' as string]: i }}>
+            <CardView rank={c.rank} suit={c.suit} className="mg-card" />
           </span>
-        )
-      })}
+        ),
+      )}
+    </div>
+  )
+}
+
+/** Break a wager into a stack of chips, biggest at the bottom. */
+function chipsFor(amount: number): ChipValue[] {
+  const denoms: ChipValue[] = [500, 100, 25, 5, 1]
+  const out: ChipValue[] = []
+  let rem = amount
+  for (const d of denoms) {
+    while (rem >= d && out.length < 9) {
+      out.push(d)
+      rem -= d
+    }
+  }
+  return out.reverse()
+}
+
+function BetStack({ amount }: { amount: number }) {
+  const chips = chipsFor(amount)
+  return (
+    <div className="mg-betstack" title={`$${amount}`}>
+      {chips.map((v, i) => (
+        <span key={i} className="mg-betchip" style={{ ['--n' as string]: i }}>
+          <Chip value={v} size={46} />
+        </span>
+      ))}
+      <span className="mg-betstack-amt">${amount}</span>
+    </div>
+  )
+}
+
+/** A shower of coins/confetti on a win — gold for a blackjack. */
+function Celebration({ blackjack }: { blackjack: boolean }) {
+  const n = blackjack ? 26 : 16
+  return (
+    <div className="mg-celebrate" aria-hidden="true">
+      {Array.from({ length: n }).map((_, i) => (
+        <span
+          key={i}
+          className={`mg-coin${blackjack ? ' bj' : ''}`}
+          style={{ ['--i' as string]: i, left: `${(i * 61) % 100}%` }}
+        />
+      ))}
     </div>
   )
 }
@@ -113,6 +176,8 @@ export function Blackjack({
 
   const win = state.lastNet
   const bannerKind = state.phase === 'settle' ? (win > 0 ? 'good' : win < 0 ? 'bad' : 'neutral') : ''
+  const celebrate = state.phase === 'settle' && win > 0
+  const isBlackjackWin = state.playerHands.some(h => h.outcome === 'blackjack')
 
   return (
     <div className="mg-bj">
@@ -127,7 +192,7 @@ export function Blackjack({
           <span className="mg-stat-sm" title="Wins / Blackjacks / Hands">
             {state.stats.wins}W · {state.stats.blackjacks}BJ · {state.stats.hands}
           </span>
-          <button className="mg-icon-btn" onClick={toggleMute} title="Mute (sound)">
+          <button className="mg-icon-btn" onClick={toggleMute} title="Sound">
             {muted ? '🔇' : '♪'}
           </button>
           <button
@@ -171,39 +236,48 @@ export function Blackjack({
         </div>
       ) : null}
 
-      <div className="mg-table">
-        <Table />
+      <div className="mg-table-3d">
+        <div className="mg-table">
+          <Table />
+          {celebrate ? <Celebration blackjack={isBlackjackWin} /> : null}
 
-        <div className="mg-dealer">
-          <HandView cards={state.dealer} holeHidden={state.holeHidden} />
-          {state.dealer.length > 0 ? <div className="mg-badge">{dealerBadge(state.dealer, state.holeHidden)}</div> : null}
-        </div>
-
-        {state.phase === 'settle' ? (
-          <div className={`mg-banner ${bannerKind}`}>
-            <div className="mg-banner-text">{state.message}</div>
+          <div className="mg-dealer">
+            <HandView cards={state.dealer} flipHole holeHidden={state.holeHidden} />
+            {state.dealer.length > 0 ? (
+              <div className="mg-badge">{dealerBadge(state.dealer, state.holeHidden)}</div>
+            ) : null}
           </div>
-        ) : null}
-        {state.phase === 'insurance' ? <div className="mg-banner neutral"><div className="mg-banner-text">Insurance?</div></div> : null}
 
-        <div className="mg-players">
-          {state.playerHands.map((h, i) => {
-            const label = outcomeLabel(h.outcome)
-            const isActive = state.phase === 'playing' && i === state.activeHand
-            return (
-              <div className={`mg-player-hand${isActive ? ' active' : ''}`} key={i}>
-                <HandView cards={h.cards} active={isActive} />
-                <div className="mg-hand-foot">
-                  {h.cards.length > 0 ? <span className="mg-badge sm">{playerBadge(h.cards)}</span> : null}
-                  {label ? <span className={`mg-outcome ${label.kind}`}>{label.text}</span> : null}
-                  {h.bet > 0 ? <span className="mg-hand-bet">${h.bet}</span> : null}
-                </div>
-              </div>
-            )
-          })}
-          {state.playerHands.length === 0 ? (
-            <div className="mg-betspot">{state.bet > 0 ? `$${state.bet}` : 'Place your bet'}</div>
+          {state.phase === 'settle' ? (
+            <div className={`mg-banner ${bannerKind}`}>
+              <div className="mg-banner-text">{state.message}</div>
+            </div>
           ) : null}
+          {state.phase === 'insurance' ? (
+            <div className="mg-banner neutral">
+              <div className="mg-banner-text">Insurance?</div>
+            </div>
+          ) : null}
+
+          <div className="mg-players">
+            {state.playerHands.map((h, i) => {
+              const label = outcomeLabel(h.outcome)
+              const isActive = state.phase === 'playing' && i === state.activeHand
+              return (
+                <div className={`mg-player-hand${isActive ? ' active' : ''}`} key={i}>
+                  <HandView cards={h.cards} />
+                  <div className="mg-hand-foot">
+                    {h.cards.length > 0 ? <span className="mg-badge sm">{playerBadge(h.cards)}</span> : null}
+                    {label ? <span className={`mg-outcome ${label.kind}`}>{label.text}</span> : null}
+                  </div>
+                </div>
+              )
+            })}
+            {state.playerHands.length === 0 && state.bet > 0 ? <BetStack amount={state.bet} /> : null}
+            {state.playerHands.length === 0 && state.bet <= 0 ? (
+              <div className="mg-betspot">Place your bet</div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -240,7 +314,7 @@ function renderActions(
               onClick={() => act(() => game.addChip(v))}
               title={`Bet $${v}`}
             >
-              <Chip value={v} size={52} />
+              <Chip value={v} size={56} />
             </button>
           ))}
         </div>
@@ -292,7 +366,6 @@ function renderActions(
     return <div className="mg-row muted">Dealer plays…</div>
   }
 
-  // settle
   return (
     <div className="mg-row">
       <button className="mg-btn primary" onClick={() => act(() => game.newRound())}>

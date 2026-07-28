@@ -1,7 +1,7 @@
 {
   "name": "agent-code-mini-games",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Mini-games for Agent Code — starting with Blackjack",
   "scripts": {

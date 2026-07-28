@@ -655,3 +655,188 @@
   font-size: 11px;
   color: var(--faint);
 }
+
+/* ==========================================================================
+   Blackjack "Steam-game" pass — larger table, 3D depth, richer motion.
+   The modal is now content-width (host content-driven sizing), so each screen
+   declares its own width and Blackjack gets a big canvas.
+   ========================================================================== */
+.mg-root {
+  width: fit-content;
+}
+.mg-launcher,
+.mg-snake {
+  width: 480px;
+}
+.mg-bj {
+  width: 860px;
+}
+
+/* Bigger cards, wider fan. */
+.mg-card {
+  width: 84px;
+}
+.mg-card-wrap:not(:first-child) {
+  margin-left: -46px;
+}
+
+/* Taller table + real depth: a perspective wrapper tilts the FELT back so the table
+   recedes, while the cards/chips sit flat above it and stay readable. */
+.mg-table-3d {
+  perspective: 1700px;
+}
+.mg-table {
+  height: 560px;
+  background: #0b3a23;
+}
+.mg-felt {
+  transform: rotateX(9deg) scale(1.09);
+  transform-origin: center 46%;
+}
+.mg-dealer {
+  top: 30px;
+}
+.mg-players {
+  bottom: 26px;
+}
+.mg-banner-text {
+  font-size: 27px;
+}
+/* A slow shine sweep across a winning banner. */
+.mg-banner.good {
+  overflow: hidden;
+}
+.mg-banner.good::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 245, 210, 0.35) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: mg-shine 1.4s ease-out 0.15s;
+}
+@keyframes mg-shine {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* Genuine 3D card flip for the dealer's hole card. */
+.mg-flip {
+  position: relative;
+  width: 84px;
+  height: 118px;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.3, 0.85, 0.25, 1.05);
+}
+.mg-flip.revealed {
+  transform: rotateY(180deg);
+}
+.mg-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.mg-flip-face .mg-card {
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.4));
+}
+.mg-flip-front {
+  transform: rotateY(180deg);
+}
+
+/* Chips tossed onto the bet spot as a little leaning stack. */
+.mg-betstack {
+  position: relative;
+  width: 56px;
+  height: 66px;
+  margin: 8px auto 22px;
+}
+.mg-betchip {
+  position: absolute;
+  left: 4px;
+  bottom: calc(var(--n) * 6px);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+  animation: mg-toss 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.35) both;
+  animation-delay: calc(var(--n) * 45ms);
+}
+.mg-betstack-amt {
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  bottom: -20px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes mg-toss {
+  from {
+    transform: translateY(-42px) rotate(-22deg);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Win celebration — a shower of coins (bigger + gold on a blackjack). */
+.mg-celebrate {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 4;
+}
+.mg-coin {
+  position: absolute;
+  top: -24px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffe9a8, #d6a437);
+  box-shadow: 0 0 6px rgba(230, 190, 90, 0.55);
+  animation: mg-fall 1.5s cubic-bezier(0.35, 0.1, 0.7, 1) forwards;
+  animation-delay: calc(var(--i) * 42ms);
+}
+.mg-coin.bj {
+  width: 16px;
+  height: 16px;
+}
+@keyframes mg-fall {
+  0% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(600px) rotate(560deg);
+    opacity: 0;
+  }
+}
+
+/* Active hand breathes instead of a static glow. */
+.mg-player-hand.active {
+  animation: mg-breathe 1.7s ease-in-out infinite;
+}
+@keyframes mg-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(227, 197, 111, 0.45), 0 0 18px rgba(227, 197, 111, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(227, 197, 111, 0.7), 0 0 30px rgba(227, 197, 111, 0.34);
+  }
+}
+
+/* Slightly larger, punchier controls for the bigger table. */
+.mg-bj .mg-btn {
+  padding: 11px 24px;
+  font-size: 15px;
+}
+.mg-bj .mg-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mg-chip-btn:active:not(:disabled) {
+  transform: translateY(-2px) scale(0.96);
+}
