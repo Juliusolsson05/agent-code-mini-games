@@ -70,8 +70,8 @@ const VIGNETTE_SHADER = {
     void main(){
       vec4 c = texture2D(tDiffuse, vUv);
       vec2 d = vUv - 0.5;
-      float v = smoothstep(0.85, 0.35, dot(d, d) * strength * 2.0);
-      gl_FragColor = vec4(c.rgb * mix(0.62, 1.0, v), c.a);
+      float v = smoothstep(0.9, 0.3, dot(d, d) * strength * 2.0);
+      gl_FragColor = vec4(c.rgb * mix(0.8, 1.0, v), c.a);
     }`,
 }
 
@@ -108,12 +108,12 @@ export class BlackjackScene {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.05
+    this.renderer.toneMappingExposure = 1.25
     container.appendChild(this.renderer.domElement)
 
-    this.camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100)
-    this.camera.position.set(0, 8.6, 8.4)
-    this.camera.lookAt(0, 0, 0.4)
+    this.camera = new THREE.PerspectiveCamera(46, w / h, 0.1, 100)
+    this.camera.position.set(0, 9, 9.4)
+    this.camera.lookAt(0, 0, -0.3)
 
     this.buildLights()
     this.buildTable()
@@ -121,7 +121,7 @@ export class BlackjackScene {
     // Post: bloom for glints on gold + chips, a vignette to frame the table.
     this.composer = new EffectComposer(this.renderer)
     this.composer.addPass(new RenderPass(this.scene, this.camera))
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.55, 0.7, 0.85)
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.45, 0.7, 0.9)
     this.composer.addPass(this.bloom)
     this.composer.addPass(new ShaderPass(VIGNETTE_SHADER))
     this.composer.addPass(new OutputPass())
@@ -135,21 +135,35 @@ export class BlackjackScene {
   }
 
   private buildLights(): void {
-    this.scene.add(new THREE.AmbientLight(0x3a4a55, 0.9))
+    // Three r155+ uses PHYSICAL light units, so distant point/spot lights need huge
+    // intensities. Use a hemisphere fill + a DIRECTIONAL key (no distance falloff, so
+    // it lights the whole table evenly and casts the shadows) and a decay-free spot
+    // only for the warm casino hot-spot + a bloom source.
+    this.scene.add(new THREE.HemisphereLight(0xa4bcd2, 0x21302a, 1.25))
 
-    const key = new THREE.SpotLight(0xffe9c4, 90, 26, Math.PI / 5, 0.55, 1.4)
-    key.position.set(0.5, 11, 4)
-    key.target.position.set(0, 0, 0.5)
+    const key = new THREE.DirectionalLight(0xfff1d8, 2.6)
+    key.position.set(3, 13, 7)
+    key.target.position.set(0, 0, 0)
     key.castShadow = true
     key.shadow.mapSize.set(2048, 2048)
-    key.shadow.camera.near = 2
-    key.shadow.camera.far = 26
-    key.shadow.bias = -0.0004
+    key.shadow.camera.near = 1
+    key.shadow.camera.far = 42
+    key.shadow.camera.left = -12
+    key.shadow.camera.right = 12
+    key.shadow.camera.top = 12
+    key.shadow.camera.bottom = -12
+    key.shadow.bias = -0.0005
     this.scene.add(key)
     this.scene.add(key.target)
 
-    const rim = new THREE.DirectionalLight(0x88aaff, 0.35)
-    rim.position.set(-6, 5, -6)
+    const spot = new THREE.SpotLight(0xffe3ad, 3.4, 0, Math.PI / 4.2, 0.65, 0)
+    spot.position.set(0, 10, 3)
+    spot.target.position.set(0, 0, 1)
+    this.scene.add(spot)
+    this.scene.add(spot.target)
+
+    const rim = new THREE.DirectionalLight(0x8fb0ff, 0.6)
+    rim.position.set(-7, 4, -7)
     this.scene.add(rim)
   }
 
@@ -303,7 +317,7 @@ export class BlackjackScene {
 
     if (this.celebrateUntil && performance.now() > this.celebrateUntil) {
       this.celebrateUntil = 0
-      this.bloom.strength = 0.55
+      this.bloom.strength = 0.45
     }
 
     this.composer.render()
