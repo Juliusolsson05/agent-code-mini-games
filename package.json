@@ -1,0 +1,24 @@
+{
+  "name": "agent-code-mini-games",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mini-games for Agent Code — starting with Blackjack",
+  "scripts": {
+    "build": "vite build && tsc --noEmit",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "agent-code-extension-api": "github:Juliusolsson05/agent-code-extension-api#v0.2.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.19"
+  }
+}
