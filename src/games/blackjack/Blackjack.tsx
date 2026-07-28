@@ -1,129 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AgentCodeApiV1 } from 'agent-code-extension-api'
 
-import { CardBack } from '../../cards/Back'
-import { Card as CardView } from '../../cards/Card'
 import { Chip, CHIP_VALUES, type ChipValue } from '../../chips/Chip'
-import { Table } from '../../table/Table'
 import type { GameAudio } from '../../audio'
-import { handValue, type BJState, type Card, type HandOutcome } from './engine'
+import { handValue, type BJState } from './engine'
+import { BlackjackScene } from './three/scene'
 import { useBlackjack } from './useBlackjack'
 
-function dealerBadge(dealer: Card[], holeHidden: boolean): string {
-  if (dealer.length === 0) return ''
-  if (holeHidden) return String(handValue([dealer[0]]).total)
-  const { total, soft } = handValue(dealer)
+function dealerReadout(state: BJState): string {
+  if (state.dealer.length === 0) return '—'
+  if (state.holeHidden) return `${handValue([state.dealer[0]]).total} + ?`
+  const { total } = handValue(state.dealer)
+  return String(total)
+}
+
+function playerReadout(state: BJState): string {
+  const hand = state.playerHands[state.activeHand] ?? state.playerHands[0]
+  if (!hand || hand.cards.length === 0) return '—'
+  const { total, soft } = handValue(hand.cards)
+  if (total > 21) return `${total} — bust`
   return soft && total !== 21 ? `${total - 10}/${total}` : String(total)
-}
-
-function playerBadge(cards: Card[]): string {
-  const { total, soft } = handValue(cards)
-  if (total > 21) return `${total}`
-  return soft && total !== 21 ? `${total - 10}/${total}` : String(total)
-}
-
-function outcomeLabel(o: HandOutcome): { text: string; kind: string } | null {
-  switch (o) {
-    case 'blackjack':
-      return { text: 'Blackjack!', kind: 'good' }
-    case 'win':
-      return { text: 'Win', kind: 'good' }
-    case 'push':
-      return { text: 'Push', kind: 'neutral' }
-    case 'bust':
-      return { text: 'Bust', kind: 'bad' }
-    case 'lose':
-      return { text: 'Lose', kind: 'bad' }
-    default:
-      return null
-  }
-}
-
-/** A genuine 3D flip: the container rotates 180° on Y, swapping a back face for the
- *  card face. Used for the dealer's hole card so the reveal is a real card turn. */
-function FlipCard({ card, revealed }: { card: Card; revealed: boolean }) {
-  return (
-    <span className="mg-card-wrap">
-      <span className={`mg-flip${revealed ? ' revealed' : ''}`}>
-        <span className="mg-flip-face mg-flip-back">
-          <CardBack className="mg-card" />
-        </span>
-        <span className="mg-flip-face mg-flip-front">
-          <CardView rank={card.rank} suit={card.suit} className="mg-card" />
-        </span>
-      </span>
-    </span>
-  )
-}
-
-/** One hand, fanned with overlap. The dealer's hole card (index 1) flips on reveal;
- *  all other cards slide in on deal. */
-function HandView({
-  cards,
-  flipHole = false,
-  holeHidden = false,
-}: {
-  cards: Card[]
-  flipHole?: boolean
-  holeHidden?: boolean
-}) {
-  return (
-    <div className="mg-cards">
-      {cards.map((c, i) =>
-        flipHole && i === 1 ? (
-          <FlipCard key={c.id} card={c} revealed={!holeHidden} />
-        ) : (
-          <span key={c.id} className="mg-card-wrap" style={{ ['--i' as string]: i }}>
-            <CardView rank={c.rank} suit={c.suit} className="mg-card" />
-          </span>
-        ),
-      )}
-    </div>
-  )
-}
-
-/** Break a wager into a stack of chips, biggest at the bottom. */
-function chipsFor(amount: number): ChipValue[] {
-  const denoms: ChipValue[] = [500, 100, 25, 5, 1]
-  const out: ChipValue[] = []
-  let rem = amount
-  for (const d of denoms) {
-    while (rem >= d && out.length < 9) {
-      out.push(d)
-      rem -= d
-    }
-  }
-  return out.reverse()
-}
-
-function BetStack({ amount }: { amount: number }) {
-  const chips = chipsFor(amount)
-  return (
-    <div className="mg-betstack" title={`$${amount}`}>
-      {chips.map((v, i) => (
-        <span key={i} className="mg-betchip" style={{ ['--n' as string]: i }}>
-          <Chip value={v} size={46} />
-        </span>
-      ))}
-      <span className="mg-betstack-amt">${amount}</span>
-    </div>
-  )
-}
-
-/** A shower of coins/confetti on a win — gold for a blackjack. */
-function Celebration({ blackjack }: { blackjack: boolean }) {
-  const n = blackjack ? 26 : 16
-  return (
-    <div className="mg-celebrate" aria-hidden="true">
-      {Array.from({ length: n }).map((_, i) => (
-        <span
-          key={i}
-          className={`mg-coin${blackjack ? ' bj' : ''}`}
-          style={{ ['--i' as string]: i, left: `${(i * 61) % 100}%` }}
-        />
-      ))}
-    </div>
-  )
 }
 
 export function Blackjack({
@@ -138,12 +34,28 @@ export function Blackjack({
   const { state, game } = useBlackjack(api, audio)
   const [muted, setMuted] = useState(audio.isMuted)
   const [showSettings, setShowSettings] = useState(false)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const sceneRef = useRef<BlackjackScene | null>(null)
 
   const act = (fn: (() => void) | undefined) => {
     if (!fn) return
     audio.unlock()
     fn()
   }
+
+  // Create the 3D scene once; feed it every state change.
+  useEffect(() => {
+    if (!stageRef.current) return
+    const scene = new BlackjackScene(stageRef.current)
+    sceneRef.current = scene
+    return () => {
+      scene.dispose()
+      sceneRef.current = null
+    }
+  }, [])
+  useEffect(() => {
+    if (state) sceneRef.current?.update(state)
+  }, [state])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -166,32 +78,31 @@ export function Blackjack({
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  if (!state || !game) return <div className="mg-loading">Shuffling the shoe…</div>
-
   const toggleMute = () => {
     const m = !muted
     setMuted(m)
     audio.setMuted(m)
   }
 
-  const win = state.lastNet
-  const bannerKind = state.phase === 'settle' ? (win > 0 ? 'good' : win < 0 ? 'bad' : 'neutral') : ''
-  const celebrate = state.phase === 'settle' && win > 0
-  const isBlackjackWin = state.playerHands.some(h => h.outcome === 'blackjack')
-
   return (
     <div className="mg-bj">
-      <div className="mg-topbar">
+      <div className="mg-scene" ref={stageRef} />
+
+      <div className="mg-hud-top">
         <button className="mg-icon-btn" onClick={onExit} title="Back to games">
           ‹ Games
         </button>
-        <div className="mg-bankroll">
-          <span className="mg-bankroll-chip" /> ${state.bankroll}
-        </div>
+        {state ? (
+          <div className="mg-bankroll">
+            <span className="mg-bankroll-chip" /> ${state.bankroll}
+          </div>
+        ) : null}
         <div className="mg-topbar-right">
-          <span className="mg-stat-sm" title="Wins / Blackjacks / Hands">
-            {state.stats.wins}W · {state.stats.blackjacks}BJ · {state.stats.hands}
-          </span>
+          {state ? (
+            <span className="mg-stat-sm">
+              {state.stats.wins}W · {state.stats.blackjacks}BJ · {state.stats.hands}
+            </span>
+          ) : null}
           <button className="mg-icon-btn" onClick={toggleMute} title="Sound">
             {muted ? '🔇' : '♪'}
           </button>
@@ -205,8 +116,15 @@ export function Blackjack({
         </div>
       </div>
 
-      {showSettings ? (
-        <div className="mg-settings">
+      {state && (state.dealer.length > 0 || state.playerHands.length > 0) ? (
+        <div className="mg-readout">
+          <span>Dealer {dealerReadout(state)}</span>
+          <span className="mg-readout-you">You {playerReadout(state)}</span>
+        </div>
+      ) : null}
+
+      {state && showSettings ? (
+        <div className="mg-settings mg-hud-settings">
           <div className="mg-set-row">
             <span className="mg-set-label">Decks</span>
             <div className="mg-seg">
@@ -215,7 +133,7 @@ export function Blackjack({
                   key={d}
                   className={`mg-seg-btn${state.settings.decks === d ? ' active' : ''}`}
                   disabled={state.phase !== 'betting'}
-                  onClick={() => game.setDecks(d)}
+                  onClick={() => game?.setDecks(d)}
                 >
                   {d}
                 </button>
@@ -227,61 +145,26 @@ export function Blackjack({
             <button
               className={`mg-toggle${state.settings.hitSoft17 ? ' on' : ''}`}
               disabled={state.phase !== 'betting'}
-              onClick={() => game.setHitSoft17(!state.settings.hitSoft17)}
+              onClick={() => game?.setHitSoft17(!state.settings.hitSoft17)}
             >
               <span className="mg-toggle-dot" />
             </button>
           </div>
-          <div className="mg-set-hint">Shoe: {state.shoeRemaining} cards left</div>
         </div>
       ) : null}
 
-      <div className="mg-table-3d">
-        <div className="mg-table">
-          <Table />
-          {celebrate ? <Celebration blackjack={isBlackjackWin} /> : null}
-
-          <div className="mg-dealer">
-            <HandView cards={state.dealer} flipHole holeHidden={state.holeHidden} />
-            {state.dealer.length > 0 ? (
-              <div className="mg-badge">{dealerBadge(state.dealer, state.holeHidden)}</div>
-            ) : null}
-          </div>
-
-          {state.phase === 'settle' ? (
-            <div className={`mg-banner ${bannerKind}`}>
-              <div className="mg-banner-text">{state.message}</div>
-            </div>
-          ) : null}
-          {state.phase === 'insurance' ? (
-            <div className="mg-banner neutral">
-              <div className="mg-banner-text">Insurance?</div>
-            </div>
-          ) : null}
-
-          <div className="mg-players">
-            {state.playerHands.map((h, i) => {
-              const label = outcomeLabel(h.outcome)
-              const isActive = state.phase === 'playing' && i === state.activeHand
-              return (
-                <div className={`mg-player-hand${isActive ? ' active' : ''}`} key={i}>
-                  <HandView cards={h.cards} />
-                  <div className="mg-hand-foot">
-                    {h.cards.length > 0 ? <span className="mg-badge sm">{playerBadge(h.cards)}</span> : null}
-                    {label ? <span className={`mg-outcome ${label.kind}`}>{label.text}</span> : null}
-                  </div>
-                </div>
-              )
-            })}
-            {state.playerHands.length === 0 && state.bet > 0 ? <BetStack amount={state.bet} /> : null}
-            {state.playerHands.length === 0 && state.bet <= 0 ? (
-              <div className="mg-betspot">Place your bet</div>
-            ) : null}
-          </div>
+      {state && state.phase === 'settle' ? (
+        <div className={`mg-banner ${state.lastNet > 0 ? 'good' : state.lastNet < 0 ? 'bad' : 'neutral'}`}>
+          <div className="mg-banner-text">{state.message}</div>
         </div>
-      </div>
+      ) : null}
+      {state && state.phase === 'insurance' ? (
+        <div className="mg-banner neutral">
+          <div className="mg-banner-text">Insurance?</div>
+        </div>
+      ) : null}
 
-      <div className="mg-actions">{renderActions(state, game, act)}</div>
+      <div className="mg-hud-bottom">{state && game ? renderActions(state, game, act) : null}</div>
     </div>
   )
 }
@@ -292,8 +175,7 @@ function renderActions(
   act: (fn: (() => void) | undefined) => void,
 ) {
   if (state.phase === 'betting') {
-    const broke = state.bankroll <= 0 && state.bet <= 0
-    if (broke) {
+    if (state.bankroll <= 0 && state.bet <= 0) {
       return (
         <div className="mg-broke">
           <span>Out of chips.</span>
@@ -314,7 +196,7 @@ function renderActions(
               onClick={() => act(() => game.addChip(v))}
               title={`Bet $${v}`}
             >
-              <Chip value={v} size={56} />
+              <Chip value={v} size={54} />
             </button>
           ))}
         </div>

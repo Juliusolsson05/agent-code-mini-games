@@ -840,3 +840,78 @@
 .mg-chip-btn:active:not(:disabled) {
   transform: translateY(-2px) scale(0.96);
 }
+
+/* ==========================================================================
+   WebGL Blackjack — the 3D stage + a HUD overlaid on the canvas.
+   ========================================================================== */
+.mg-bj {
+  width: 860px;
+  height: 620px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: radial-gradient(120% 100% at 50% 28%, #0c1a14, #060f0b);
+}
+.mg-scene {
+  position: absolute;
+  inset: 0;
+}
+.mg-scene canvas {
+  display: block;
+}
+.mg-hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+}
+.mg-hud-settings {
+  position: absolute;
+  top: 56px;
+  right: 14px;
+  z-index: 6;
+  width: 262px;
+  margin: 0;
+}
+.mg-readout {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 84px;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-soft);
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+.mg-readout-you {
+  color: #eaf3ec;
+}
+.mg-hud-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 14px 16px 16px;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.74), transparent);
+}
+.mg-hud-bottom .mg-bet {
+  max-width: 820px;
+}
+.mg-banner {
+  z-index: 6;
+}
