@@ -1,7 +1,7 @@
 // A tiny external store for which screen is showing. Lives outside React so a
 // contributed command (games.blackjack) invoked in the frame can flip the screen
 // without a React handle — the App subscribes via useSyncExternalStore.
-export type Screen = 'launcher' | 'blackjack'
+export type Screen = 'launcher' | 'blackjack' | 'snake'
 
 type Listener = () => void
 

@@ -1,41 +1,76 @@
+import type { ReactNode } from 'react'
+
 import { Card } from '../cards/Card'
 import type { Screen } from '../router'
 
-/** The home screen — a grid of game tiles. Blackjack is live; the rest are teasers
- *  so the "hub" intent is visible from day one. */
+function BlackjackArt() {
+  return (
+    <div className="mg-tile-art bj">
+      <span className="mg-tile-card c1">
+        <Card rank="A" suit="S" />
+      </span>
+      <span className="mg-tile-card c2">
+        <Card rank="K" suit="H" />
+      </span>
+    </div>
+  )
+}
+
+function SnakeArt() {
+  // A little snake curling toward an apple, drawn in the Neon skin's palette.
+  return (
+    <div className="mg-tile-art snake">
+      <svg viewBox="0 0 140 96" width="140" height="96" aria-hidden="true">
+        <g fill="#38f0ff">
+          <rect x="22" y="58" width="18" height="18" rx="5" />
+          <rect x="40" y="58" width="18" height="18" rx="5" />
+          <rect x="58" y="58" width="18" height="18" rx="5" />
+          <rect x="58" y="40" width="18" height="18" rx="5" />
+          <rect x="58" y="22" width="18" height="18" rx="5" opacity="0.95" />
+          <rect x="76" y="22" width="18" height="18" rx="5" opacity="0.95" />
+          <circle cx="87" cy="27" r="1.8" fill="#0a0b12" />
+          <circle cx="87" cy="35" r="1.8" fill="#0a0b12" />
+        </g>
+        <circle cx="112" cy="66" r="7" fill="#ff2d78" />
+      </svg>
+    </div>
+  )
+}
+
+function Tile({
+  onClick,
+  art,
+  name,
+  desc,
+}: {
+  onClick: () => void
+  art: ReactNode
+  name: string
+  desc: string
+}) {
+  return (
+    <button className="mg-tile" onClick={onClick}>
+      {art}
+      <div className="mg-tile-body">
+        <div className="mg-tile-name">{name}</div>
+        <div className="mg-tile-desc">{desc}</div>
+      </div>
+    </button>
+  )
+}
+
+/** The home screen — a grid of game tiles. */
 export function Launcher({ onPlay }: { onPlay: (screen: Screen) => void }) {
   return (
     <div className="mg-launcher">
-      <div className="mg-launcher-head">
+      <header className="mg-launcher-head">
         <div className="mg-launcher-title">Mini Games</div>
         <div className="mg-launcher-sub">A little arcade inside Agent Code</div>
-      </div>
+      </header>
 
       <div className="mg-grid">
-        <button className="mg-tile" onClick={() => onPlay('blackjack')}>
-          <div className="mg-tile-art bj">
-            <span className="mg-tile-card c1">
-              <Card rank="A" suit="S" />
-            </span>
-            <span className="mg-tile-card c2">
-              <Card rank="K" suit="H" />
-            </span>
-          </div>
-          <div className="mg-tile-body">
-            <div className="mg-tile-name">Blackjack</div>
-            <div className="mg-tile-desc">Beat the dealer to 21 · chips, splits &amp; 3:2</div>
-          </div>
-        </button>
-
-        <div className="mg-tile soon" aria-disabled="true">
-          <div className="mg-tile-art soon">
-            <span>♠ ♥ ♦ ♣</span>
-          </div>
-          <div className="mg-tile-body">
-            <div className="mg-tile-name">More games</div>
-            <div className="mg-tile-desc">Coming soon</div>
-          </div>
-        </div>
+        <Tile onClick={() => onPlay('blackjack')} art={<BlackjackArt />} name="Blackjack" desc="Beat the dealer to 21" />
+        <Tile onClick={() => onPlay('snake')} art={<SnakeArt />} name="Snake" desc="Eat, grow, don't crash" />
       </div>
     </div>
   )

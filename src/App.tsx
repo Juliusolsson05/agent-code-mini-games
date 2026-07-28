@@ -3,6 +3,7 @@ import type { AgentCodeApiV1 } from 'agent-code-extension-api'
 
 import type { GameAudio } from './audio'
 import { Blackjack } from './games/blackjack/Blackjack'
+import { Snake } from './games/snake/Snake'
 import { Launcher } from './launcher/Launcher'
 import { router } from './router'
 
@@ -15,6 +16,8 @@ export function App({ api, audio }: { api: AgentCodeApiV1; audio: GameAudio }) {
     <div className="mg-root">
       {screen === 'blackjack' ? (
         <Blackjack api={api} audio={audio} onExit={() => router.show('launcher')} />
+      ) : screen === 'snake' ? (
+        <Snake api={api} onExit={() => router.show('launcher')} />
       ) : (
         <Launcher onPlay={s => router.show(s)} />
       )}
