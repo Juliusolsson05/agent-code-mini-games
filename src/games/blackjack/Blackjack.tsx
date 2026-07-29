@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AgentCodeApiV1 } from 'agent-code-extension-api'
 
-import { Chip, CHIP_VALUES, type ChipValue } from '../../chips/Chip'
+import { ChipFace } from '../../assets/svg/ChipFace'
+import { CHIP_VALUES, type ChipValue } from '../../shared/chipPalette'
 import type { GameAudio } from '../../audio'
 import { handValue, type BJState } from './engine'
-import { BlackjackScene } from './three/scene'
+import { BlackjackScene } from './scene'
 import { useBlackjack } from './useBlackjack'
 
 function dealerReadout(state: BJState): string {
@@ -46,7 +47,13 @@ export function Blackjack({
   // Create the 3D scene once; feed it every state change.
   useEffect(() => {
     if (!stageRef.current) return
-    const scene = new BlackjackScene(stageRef.current)
+    // Impact sounds are triggered by the SCENE, not the engine: the engine knows when a
+    // card is dealt, but only the scene knows when it actually lands. Firing on the
+    // engine event played the clink while the card was still in the air.
+    const scene = new BlackjackScene(stageRef.current, {
+      cardLand: () => audio.deal(),
+      chipLand: () => audio.chip(),
+    })
     sceneRef.current = scene
     return () => {
       scene.dispose()
@@ -196,7 +203,7 @@ function renderActions(
               onClick={() => act(() => game.addChip(v))}
               title={`Bet $${v}`}
             >
-              <Chip value={v} size={54} />
+              <ChipFace value={v} size={54} />
             </button>
           ))}
         </div>

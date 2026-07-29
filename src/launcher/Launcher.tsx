@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
 
-import { Card } from '../cards/Card'
+import { CardFace } from '../assets/svg/CardFace'
 import type { Screen } from '../router'
 
 function BlackjackArt() {
   return (
     <div className="mg-tile-art bj">
       <span className="mg-tile-card c1">
-        <Card rank="A" suit="S" />
+        <CardFace rank="A" suit="S" />
       </span>
       <span className="mg-tile-card c2">
-        <Card rank="K" suit="H" />
+        <CardFace rank="K" suit="H" />
       </span>
     </div>
   )

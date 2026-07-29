@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Blackjack scene lab</title>
+    <style>
+      /* Full-viewport 3D stage — no HUD, no game logic. Just the BlackjackScene fed a
+         canned dealt hand so we can iterate on lighting/materials/camera in isolation
+         and screenshot it deterministically (headless or live). */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0c10;
+      }
+      #stage {
+        position: absolute;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <script type="module" src="./lab.tsx"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 
-import { CardBack } from './Back'
+import { CardBack } from './CardBack'
 import { PIP_CENTER_Y, PIP_LAYOUT } from './pips'
 import { Pip, suitColor, type Rank, type Suit } from './suits'
 
@@ -62,7 +62,7 @@ function CourtCenter({ rank, suit, color }: { rank: Rank; suit: Suit; color: str
   )
 }
 
-export type CardProps = {
+export type CardFaceProps = {
   rank: Rank
   suit: Suit
   faceDown?: boolean
@@ -71,7 +71,7 @@ export type CardProps = {
 }
 
 /** A single playing card, drawn entirely as SVG. */
-export function Card({ rank, suit, faceDown, className, style }: CardProps) {
+export function CardFace({ rank, suit, faceDown, className, style }: CardFaceProps) {
   if (faceDown) return <CardBack className={className} style={style} />
 
   const color = suitColor(suit)

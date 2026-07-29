@@ -93,17 +93,30 @@ export class GameAudio {
     src.stop(t + dur + 0.02)
   }
 
-  /** Card dealt/hit — a short paper swish. */
+  // Every impact sound is PITCH-JITTERED (§10). Real cards and chips never make the
+  // identical sound twice; playing one sample verbatim five times in a row is instantly
+  // recognisable as synthetic and is what made a dealt hand sound like a UI, not a table.
+  private jitter(spread = 0.07): number {
+    return 1 + (Math.random() * 2 - 1) * spread
+  }
+
+  /** Card landing on felt — a short paper swish plus a soft body thud. */
   deal(): void {
-    this.noise(0.085, 0.11, 'bandpass', 1500, 0.7, 0)
-    this.tone(210, 0.05, 'triangle', 0.03)
+    const j = this.jitter(0.09)
+    // Band-passed noise IS the swish: paper sliding is broadband friction, not a tone.
+    this.noise(0.085 * j, 0.1, 'bandpass', 1500 * j, 0.7, 0)
+    // A touch of low body so the card has weight where it lands.
+    this.tone(190 * j, 0.055, 'triangle', 0.035)
+    // A second, quieter swish a few ms later reads as the card settling against the felt.
+    this.noise(0.05, 0.035, 'bandpass', 950 * j, 0.9, 0.035)
   }
 
   /** Chip placed — a bright metallic clink (two pings over a tick of noise). */
   chip(): void {
-    this.noise(0.03, 0.05, 'highpass', 3200, 0, 0)
-    this.tone(1180, 0.07, 'triangle', 0.11)
-    this.tone(1580, 0.06, 'sine', 0.06, 0.012)
+    const j = this.jitter(0.06)
+    this.noise(0.03, 0.05, 'highpass', 3200 * j, 0, 0)
+    this.tone(1180 * j, 0.07, 'triangle', 0.11)
+    this.tone(1580 * j, 0.06, 'sine', 0.06, 0.012)
   }
 
   /** Win — a bright rising major arpeggio. */

@@ -15,8 +15,13 @@ export function useBlackjack(
 
   useEffect(() => {
     const game = new BlackjackGame(api, setState, {
-      deal: () => audio.deal(),
-      chip: () => audio.chip(),
+      // IMPACT sounds are owned by the SCENE, not the engine (see Blackjack.tsx).
+      // The engine knows when a card is dealt; only the scene knows when it lands. Firing
+      // here played the swish while the card was still mid-air AND double-triggered it
+      // once the scene gained its own impact hooks. Outcome sounds stay here — they're
+      // about the result, which the engine alone decides.
+      deal: () => {},
+      chip: () => {},
       win: () => audio.win(),
       lose: () => audio.lose(),
       push: () => audio.push(),

@@ -859,6 +859,18 @@
 .mg-scene canvas {
   display: block;
 }
+/* The vignette (spec §3.2). Deliberately CSS, not a shader pass: a vignette is a radial
+   gradient, and doing it here costs zero GPU passes and cannot interact with tone mapping
+   or colour space. It sits above the canvas but below the HUD, and never eats clicks.
+   The scene renders direct-to-canvas with NO post-processing — see scene/index.ts for
+   why (a bloom pass reading the linear HDR buffer is what blew out every white card). */
+.mg-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(115% 90% at 50% 46%, transparent 42%, rgba(0, 0, 0, 0.42) 100%);
+}
 .mg-hud-top {
   position: absolute;
   top: 0;

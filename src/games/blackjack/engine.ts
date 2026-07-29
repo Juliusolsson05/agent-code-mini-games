@@ -1,6 +1,6 @@
 import type { AgentCodeApiV1 } from 'agent-code-extension-api'
 
-import type { Rank, Suit } from '../../cards/suits'
+import type { Rank, Suit } from '../../assets/svg/suits'
 
 export type Card = { rank: Rank; suit: Suit; id: string }
 

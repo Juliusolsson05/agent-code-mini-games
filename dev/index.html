@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mini Games — dev</title>
+    <style>
+      /* Dev-only chrome. The real host mounts this app inside a modal/pane; here we
+         just give it a dark stage and center it so the WebGL table reads the same. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0b0c10;
+        color: #ececf1;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      /* A few --theme-* tokens the app's chrome falls back on, so the HUD colors
+         match what you'd see inside Agent Code's dark theme. */
+      :root {
+        --theme-surface: #141317;
+        --theme-surface-raised: #1c1b21;
+        --theme-text: #ececf1;
+        --theme-text-muted: #a0a0ab;
+        --theme-accent: #e8c23f;
+        --theme-border: #2a2a31;
+      }
+      #app {
+        /* The app root sizes itself (860×620 stage); this just contains it. */
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
