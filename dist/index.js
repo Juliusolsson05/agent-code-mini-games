@@ -24225,7 +24225,7 @@ function bD() {
 }
 const mu = "#f0e2b6";
 function PD({ w: t, h: e, legendY: n, circle: i }) {
-  const r = Math.round(t * 0.042), s = Math.round(t * 0.021);
+  const r = Math.round(t * 0.027), s = Math.round(t * 0.014);
   return /* @__PURE__ */ k.jsxs("svg", { viewBox: `0 0 ${t} ${e}`, width: t, height: e, children: [
     /* @__PURE__ */ k.jsxs("g", { textAnchor: "middle", fontFamily: "Georgia, 'Times New Roman', serif", children: [
       /* @__PURE__ */ k.jsx("text", { x: t / 2, y: n, fontSize: r, fontWeight: 700, fill: mu, fillOpacity: "0.86", children: "BLACKJACK PAYS 3 TO 2" }),

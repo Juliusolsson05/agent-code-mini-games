@@ -19,8 +19,14 @@ export type TableLogoProps = {
 
 export function TableLogo({ w, h, legendY, circle }: TableLogoProps) {
   // Type scales with the texture so the legend is a constant physical size on the felt.
-  const headline = Math.round(w * 0.042)
-  const sub = Math.round(w * 0.021)
+  //
+  // Kept deliberately small. The legend is SIGNAGE — it belongs to the furniture, not to
+  // the round in progress. At the original size the headline spanned half the table and
+  // competed with the cards for attention every frame, which is exactly backwards: on a
+  // real table this text is a quiet piece of house information you read once and then
+  // stop seeing.
+  const headline = Math.round(w * 0.027)
+  const sub = Math.round(w * 0.014)
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h}>
