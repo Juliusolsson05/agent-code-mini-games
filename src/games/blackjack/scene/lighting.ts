@@ -56,9 +56,15 @@ export function installLighting(scene: THREE.Scene, renderer: THREE.WebGLRendere
   key.shadow.camera.right = s
   key.shadow.camera.top = s
   key.shadow.camera.bottom = -s
-  key.shadow.bias = -0.0004
-  key.shadow.normalBias = 0.02
-  key.shadow.radius = 4
+  key.shadow.bias = -0.0002
+  // normalBias offsets the shadow lookup ALONG THE SURFACE NORMAL to fight acne. At 0.02
+  // that offset was comparable to a card's entire thickness (0.038), so the sample walked
+  // clean past the card and it cast nothing — a major reason the cards looked flat and
+  // pasted-on. Keep this well under the thinnest shadow-casting object in the scene.
+  key.shadow.normalBias = 0.005
+  // Softer than a hard edge, tighter than before: at radius 4 a card's small shadow was
+  // blurred until it read as a smudge rather than a contact.
+  key.shadow.radius = 2.5
   scene.add(key)
   scene.add(key.target)
 

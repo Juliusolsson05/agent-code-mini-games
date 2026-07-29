@@ -82,6 +82,17 @@ function decalMaterial(map: THREE.Texture): THREE.MeshStandardMaterial {
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
+    // ── alphaTest IS WHY THE CORNERS AREN'T BLACK ──
+    // The decal geometry is a SQUARE plane, but the card art is a rounded rect, so the
+    // four corner regions of the texture are fully transparent. On an opaque material
+    // alpha is simply ignored and those texels render with their RGB — which for a
+    // cleared canvas is (0,0,0). Result: four hard black triangles on every card.
+    //
+    // Discarding sub-threshold fragments cuts the corners away instead, revealing the
+    // rounded white stock underneath, so the card gets a genuinely rounded silhouette
+    // against the felt. Using alphaTest rather than `transparent: true` keeps the decal
+    // in the opaque pass — no depth sorting, and it still casts a correct shadow.
+    alphaTest: 0.5,
   })
 }
 

@@ -18,7 +18,10 @@ import * as THREE from 'three'
 // 860px from a bird's-eye camera. Fidelity that you cannot read is worthless.
 export const CW = 1.42 // card width
 export const CH = 1.99 // card height (1:1.4 poker ratio, matches the 100×140 SVG viewBox)
-export const CT = 0.026 // card thickness
+// Card thickness, deliberately ~6x scale-exaggerated (a real card is 0.5% of its own
+// width; this is ~2.5%). At true scale the edge is sub-pixel and cards read as decals
+// printed on the felt rather than objects lying on it.
+export const CT = 0.038 // card thickness
 export const CARD_RADIUS = 0.092 // corner radius of the rounded stock (§8.2)
 
 // --- chips ---
@@ -41,6 +44,19 @@ export const TABLE_CORNER_R = 1.15
 // a real dealer's fan shows the full index plus most of the art.
 export const FAN = 0.9
 export const CARD_STAGGER_Z = 0.11 // each subsequent card sits slightly toward the player
+
+/**
+ * How far the bottom card floats above the felt, and how much each card above it adds.
+ *
+ * Also exaggerated, and for a specific reason: a card lying flat ON the cloth casts a
+ * contact shadow only a fraction of a millimetre wide — physically correct and visually
+ * nothing, which is why the cards read as flat. Lifting them ~4% of a card width gives
+ * the key light room to throw a real drop shadow, and the near-top-down camera hides the
+ * float almost entirely. The per-card step is what makes a fanned hand show which card
+ * is on top.
+ */
+export const CARD_LIFT = 0.055
+export const CARD_STACK_STEP = 0.017
 export const DEALER_Z = -2.75
 export const PLAYER_Z = 2.6
 export const BET_Z = 1.05

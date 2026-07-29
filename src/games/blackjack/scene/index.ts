@@ -35,6 +35,8 @@ import { disposeCardTextures } from './textures/cardTextures'
 import { disposeChipTextures } from './textures/chipTextures'
 import {
   BET_Z,
+  CARD_LIFT,
+  CARD_STACK_STEP,
   CARD_STAGGER_Z,
   CHIP_H,
   CT,
@@ -197,7 +199,7 @@ export class BlackjackScene {
         const faceDown = holeHidden && i === 1
         const to = new THREE.Vector3(
           xCenter + (i - (n - 1) / 2) * FAN,
-          CT / 2 + 0.012 + i * 0.006,
+          CARD_LIFT + CT / 2 + i * CARD_STACK_STEP,
           z + i * CARD_STAGGER_Z,
         )
 
