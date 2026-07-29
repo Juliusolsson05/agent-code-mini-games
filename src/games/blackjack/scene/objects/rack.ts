@@ -5,121 +5,168 @@ import { arcPosition, clamp01, easeOutCubic } from '../animation'
 import { CHIP_H, CHIP_R, FELT_D, FELT_W } from '../world'
 import { chipJitter, disposeChip, makeChip } from './chip'
 
-// The player's bankroll, as PHYSICAL CHIPS in the bottom-left corner (§9.4 extension).
+// The player's bankroll as PHYSICAL CHIPS in the bottom-left (§9.4 extension).
 //
 // ── WHY THIS EXISTS ──
-// The bankroll was a number in the top-right corner. Numbers are information, not
-// feedback: winning $50 changed a glyph and nothing else, which is why a win felt
-// anticlimactic even after the payout chips landed. A rack that visibly GROWS when you
-// win and SHRINKS when you lose gives every hand a physical consequence you feel in
-// peripheral vision, without reading anything.
+// The bankroll was a number in the top-right. Numbers are information, not feedback:
+// winning $50 changed a glyph and nothing else, which is why a win stayed anticlimactic
+// even once the payout chips landed. A rack that visibly grows and shrinks every hand
+// gives the result a physical consequence you feel in peripheral vision.
 //
-// The rack is an indicator, not an accounting record — see rackBreakdown() for why it
-// renders one denomination rather than a true largest-first breakdown.
+// ── WHY IT'S A MIXED BREAKDOWN ──
+// See rackBreakdown(). A single-denomination rack put 40 green chips on the felt at
+// $1000 — a wall of identical discs that ate a third of the table. A real tray is
+// colour-ordered high-to-low with a little change at the end, which is both prettier and
+// far more compact: $1000 is 17 chips across 4 short columns instead of 40 across 5 tall
+// ones.
 
-const COLUMN_HEIGHT = 8 // chips per column before starting a new one
+const COLUMN_HEIGHT = 8 // chips per column before spilling into the next
+const MAX_COLUMNS = 5
 const COLUMN_GAP = CHIP_R * 2.35
-const ROW_GAP = CHIP_R * 2.35
+const ROW_GAP = CHIP_R * 2.6
 
 /** Bottom-left of the felt, clear of the player's hand and the discard tray. */
 const RACK_X = -FELT_W / 2 + 1.45
 const RACK_Z = FELT_D / 2 - 1.35
 
 const DROP_DURATION = 0.3
-const DROP_STAGGER = 0.045
+const DROP_STAGGER = 0.04
 const LEAVE_DURATION = 0.34
 
 type RackChip = {
   mesh: THREE.Mesh
+  denom: ChipValue
   from: THREE.Vector3
   to: THREE.Vector3
   t: number
   duration: number
   landed: boolean
-  /** Set when the chip is on its way OUT; it is disposed when its travel completes. */
+  /** Set when the chip is on its way OUT; disposed when its travel completes. */
   leaving: boolean
 }
 
+/** One chip's slot in the tray, in (column, level) space. */
+type Seat = { denom: ChipValue; col: number; level: number }
+
 export class ChipRack {
   private chips: RackChip[] = []
-  private denom: ChipValue = 25
-  private count = -1
+  private lastBankroll = -1
 
   constructor(private scene: THREE.Scene) {}
 
-  /** Seat `index` in the rack, counting up each column then across. */
-  private seat(index: number, out: THREE.Vector3): THREE.Vector3 {
-    const column = Math.floor(index / COLUMN_HEIGHT)
-    const level = index % COLUMN_HEIGHT
-    // Columns march right, and wrap to a second row toward the dealer once we run out
-    // of width — a rack that grew indefinitely sideways would cross the betting circle.
-    const col = column % 4
-    const row = Math.floor(column / 4)
+  /**
+   * Lay the breakdown out into seats. A NEW DENOMINATION ALWAYS STARTS A NEW COLUMN —
+   * that column-per-colour ordering is what makes a chip well legible at a glance; mixing
+   * denominations within a column reads as a jumble and hides the composition.
+   */
+  private seats(bankroll: number): Seat[] {
+    const out: Seat[] = []
+    let col = 0
+    let level = 0
+    let prev: ChipValue | null = null
+
+    for (const { denom, count } of rackBreakdown(bankroll)) {
+      for (let i = 0; i < count; i++) {
+        if (prev !== null && (denom !== prev || level >= COLUMN_HEIGHT)) {
+          col++
+          level = 0
+        }
+        out.push({ denom, col, level })
+        level++
+        prev = denom
+      }
+    }
+    return out
+  }
+
+  private place(seat: Seat, out: THREE.Vector3): THREE.Vector3 {
+    // Wrap to a second row rather than marching across the betting circle.
+    const col = seat.col % MAX_COLUMNS
+    const row = Math.floor(seat.col / MAX_COLUMNS)
     const j = chipJitter()
     return out.set(
       RACK_X + col * COLUMN_GAP + j.x,
-      0.02 + CHIP_H / 2 + level * CHIP_H,
+      0.02 + CHIP_H / 2 + seat.level * CHIP_H,
       RACK_Z - row * ROW_GAP + j.z,
     )
   }
 
   /**
-   * Reconcile the rack to a bankroll. Adds drop in from above with a stagger; removals
-   * fly off toward the dealer. A denomination change (crossing a rackBreakdown boundary)
-   * rebuilds the whole rack, which reads as the dealer colouring you up — correct
-   * behaviour, and rare enough not to be noisy.
+   * Reconcile to a bankroll. Chips are matched BY DENOMINATION so a win that adds three
+   * $25s doesn't rebuild the whole tray — only the genuinely new chips animate in, and
+   * survivors slide to close any gap.
    */
   update(bankroll: number, reducedMotion: boolean): void {
-    const { denom, count } = rackBreakdown(bankroll)
-    if (denom === this.denom && count === this.count) return
+    if (bankroll === this.lastBankroll) return
+    this.lastBankroll = bankroll
 
-    const rebuild = denom !== this.denom
-    this.denom = denom
-    this.count = count
-
-    const live = this.chips.filter(c => !c.leaving)
-
-    if (rebuild) {
-      for (const c of live) this.retire(c, reducedMotion)
-      live.length = 0
-    }
-
+    const seats = this.seats(bankroll)
     const scratch = new THREE.Vector3()
 
-    // Too many chips on the table — send the surplus back to the house.
-    for (let i = live.length - 1; i >= count; i--) {
-      this.retire(live[i], reducedMotion)
-      live.splice(i, 1)
+    // Bucket the live chips by denomination so we can diff per colour.
+    const live = this.chips.filter(c => !c.leaving)
+    const byDenom = new Map<ChipValue, RackChip[]>()
+    for (const c of live) {
+      const list = byDenom.get(c.denom) ?? []
+      list.push(c)
+      byDenom.set(c.denom, list)
     }
 
-    // Too few — drop the difference in.
-    for (let i = live.length; i < count; i++) {
-      const mesh = makeChip(denom)
-      const to = this.seat(i, scratch).clone()
-      const from = new THREE.Vector3(to.x, 3.4, to.z - 0.4)
-      mesh.position.copy(reducedMotion ? to : from)
-      this.scene.add(mesh)
-      const chip: RackChip = {
-        mesh,
-        from,
-        to,
-        t: reducedMotion ? DROP_DURATION : -(i - live.length) * DROP_STAGGER,
-        duration: DROP_DURATION,
-        landed: reducedMotion,
-        leaving: false,
+    const wanted = new Map<ChipValue, number>()
+    for (const s of seats) wanted.set(s.denom, (wanted.get(s.denom) ?? 0) + 1)
+
+    // Retire surplus chips of each colour (including colours that vanished entirely).
+    for (const [denom, list] of byDenom) {
+      const keep = wanted.get(denom) ?? 0
+      for (let i = list.length - 1; i >= keep; i--) {
+        this.retire(list[i], reducedMotion)
+        list.splice(i, 1)
       }
-      this.chips.push(chip)
-      live.push(chip)
     }
 
-    // Re-seat survivors — after a removal the remaining chips must close the gap.
-    live.forEach((c, i) => {
-      const target = this.seat(i, scratch)
-      if (!c.leaving && c.to.distanceToSquared(target) > 0.0004) {
-        c.from.copy(c.mesh.position)
-        c.to.copy(target)
-        c.t = reducedMotion ? c.duration : 0
-        c.landed = reducedMotion
+    // Add the missing ones.
+    for (const [denom, count] of wanted) {
+      const list = byDenom.get(denom) ?? []
+      for (let i = list.length; i < count; i++) {
+        const mesh = makeChip(denom)
+        this.scene.add(mesh)
+        const chip: RackChip = {
+          mesh,
+          denom,
+          from: new THREE.Vector3(),
+          to: new THREE.Vector3(),
+          t: 0,
+          duration: DROP_DURATION,
+          landed: reducedMotion,
+          leaving: false,
+        }
+        list.push(chip)
+        this.chips.push(chip)
+      }
+      byDenom.set(denom, list)
+    }
+
+    // Seat everything. Chips already at rest that haven't moved keep their position, so
+    // an unchanged column stays perfectly still.
+    const cursor = new Map<ChipValue, number>()
+    seats.forEach((seat, index) => {
+      const n = cursor.get(seat.denom) ?? 0
+      cursor.set(seat.denom, n + 1)
+      const chip = byDenom.get(seat.denom)?.[n]
+      if (!chip) return
+
+      const target = this.place(seat, scratch)
+      if (chip.to.lengthSq() === 0) {
+        // Brand new: drop it in from above, staggered by its position in the tray.
+        chip.to.copy(target)
+        chip.from.set(target.x, 3.4, target.z - 0.4)
+        chip.mesh.position.copy(reducedMotion ? target : chip.from)
+        chip.t = reducedMotion ? DROP_DURATION : -index * DROP_STAGGER
+      } else if (chip.to.distanceToSquared(target) > 0.0004) {
+        chip.from.copy(chip.mesh.position)
+        chip.to.copy(target)
+        chip.t = reducedMotion ? chip.duration : 0
+        chip.landed = reducedMotion
       }
     })
   }
@@ -127,7 +174,8 @@ export class ChipRack {
   private retire(chip: RackChip, reducedMotion: boolean): void {
     chip.leaving = true
     chip.from.copy(chip.mesh.position)
-    chip.to.set(chip.mesh.position.x, 2.6, chip.mesh.position.z - 2.2)
+    // Back toward the dealer — losses leave the way the house takes them.
+    chip.to.set(chip.mesh.position.x + 0.6, 2.4, chip.mesh.position.z - 2.4)
     chip.t = reducedMotion ? LEAVE_DURATION : 0
     chip.duration = LEAVE_DURATION
     chip.landed = true // a departing chip must not click

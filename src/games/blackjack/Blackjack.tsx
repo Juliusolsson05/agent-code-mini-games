@@ -54,6 +54,7 @@ export function Blackjack({
       cardLand: () => audio.deal(),
       chipLand: () => audio.chip(),
       cardSweep: () => audio.sweep(),
+      shuffle: () => audio.shuffle(),
     })
     sceneRef.current = scene
     return () => {

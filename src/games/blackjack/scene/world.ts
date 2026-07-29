@@ -52,8 +52,8 @@ export const HAND_GAP = 4.3 // x-spread between split hands
 export const SHOE_POS = new THREE.Vector3(7.0, 2.4, -3.8)
 
 /** Static props (§8.5). */
-export const SHOE_PROP_POS = new THREE.Vector3(6.35, 0, -3.45)
-export const DISCARD_PROP_POS = new THREE.Vector3(-6.35, 0, -3.45)
+export const SHOE_PROP_POS = new THREE.Vector3(6.05, 0, -3.15)
+export const DISCARD_PROP_POS = new THREE.Vector3(-6.05, 0, -3.15)
 
 /**
  * What the camera frames (§4.2). Deliberately the felt plus a little rail — NOT the whole

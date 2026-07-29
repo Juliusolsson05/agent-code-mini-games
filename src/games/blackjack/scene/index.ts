@@ -92,6 +92,8 @@ export type SceneSfx = {
   chipLand(): void
   /** Fired once when a hand is swept to the discard tray — not once per card. */
   cardSweep(): void
+  /** Fired when the dealer reshuffles and the shoe refills. */
+  shuffle(): void
 }
 
 /**
@@ -145,7 +147,12 @@ export class BlackjackScene {
 
   constructor(
     private container: HTMLElement,
-    private sfx: SceneSfx = { cardLand: () => {}, chipLand: () => {}, cardSweep: () => {} },
+    private sfx: SceneSfx = {
+      cardLand: () => {},
+      chipLand: () => {},
+      cardSweep: () => {},
+      shuffle: () => {},
+    },
   ) {
     const w = Math.max(1, container.clientWidth)
     const h = Math.max(1, container.clientHeight)
@@ -274,8 +281,13 @@ export class BlackjackScene {
     // makes the props read as part of a game in progress rather than scenery.
     const total = state.settings.decks * 52
     const remaining = Math.max(0, Math.min(total, state.shoeRemaining))
-    // A rising shoe count means the engine reshuffled — the discards went back in the box.
-    if (state.shoeRemaining > this.lastShoeRemaining) this.discarded = 0
+    // A rising shoe count means the engine reshuffled — the discards went back in the
+    // box. The eased fills in props.ts turn this into a visible refill animation (the
+    // discard tray drains while the shoe swells) with no special-casing here.
+    if (state.shoeRemaining > this.lastShoeRemaining) {
+      this.discarded = 0
+      this.sfx.shuffle()
+    }
     this.lastShoeRemaining = state.shoeRemaining
 
     this.props.setShoeFill(total > 0 ? remaining / total : 0)
@@ -445,6 +457,7 @@ export class BlackjackScene {
     this.stepChips(this.chips, dt)
     this.stepChips(this.payouts, dt)
     this.rack.step(dt, this.scratch, this.sfx.chipLand)
+    this.props.step(dt)
 
     driftCamera(this.camera, elapsed, !this.reducedMotion)
     this.renderer.render(this.scene, this.camera)

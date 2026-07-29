@@ -35,14 +35,57 @@ export const CHIP_PALETTE: Record<ChipValue, ChipColors> = {
  * 20 green $25s; $2000 becomes 20 black $100s. The rack always reads as a real rack, and
  * every swing visibly changes its height.
  */
-export function rackBreakdown(bankroll: number, maxChips = 40): { denom: ChipValue; count: number } {
-  if (bankroll <= 0) return { denom: 1, count: 0 }
-  for (const denom of CHIP_VALUES) {
-    const count = Math.floor(bankroll / denom)
-    if (count <= maxChips) return { denom, count }
+export function rackBreakdown(bankroll: number): Array<{ denom: ChipValue; count: number }> {
+  if (bankroll <= 0) return []
+
+  // Pick the PRIMARY denomination: the largest one you'd hold a real stack of. Requiring
+  // at least 4 keeps it from being two lonely purple chips; taking the largest that
+  // qualifies keeps it from being forty green ones. At $1000 that lands on $100.
+  const MIN_PRIMARY = 4
+  let pi = CHIP_DENOMS.findIndex(d => Math.floor(bankroll / d) >= MIN_PRIMARY)
+  if (pi === -1) pi = CHIP_DENOMS.findIndex(d => d <= bankroll)
+  if (pi === -1) return []
+
+  const out = new Map<ChipValue, number>()
+  let rem = bankroll
+
+  // Reserve CHANGE in the two denominations below the primary, before the primary eats
+  // everything. A real tray always holds small chips for the next bet, and this is the
+  // whole reason the rack looks handled rather than machine-generated. Budget is a
+  // fraction of the roll, so change scales with how rich you are.
+  const CHANGE_CAP = 4
+  const CHANGE_BUDGET = 0.06
+  for (let i = pi + 1; i < CHIP_DENOMS.length && i <= pi + 2; i++) {
+    const d = CHIP_DENOMS[i]
+    const n = Math.min(CHANGE_CAP, Math.floor((bankroll * CHANGE_BUDGET) / d))
+    if (n > 0) {
+      out.set(d, n)
+      rem -= n * d
+    }
   }
-  // Richer than 40 × $500 — cap it; the rack is an indicator, not an audit.
-  return { denom: 500, count: maxChips }
+
+  // The primary takes the bulk of what's left.
+  const primary = CHIP_DENOMS[pi]
+  const nPrimary = Math.floor(rem / primary)
+  if (nPrimary > 0) {
+    out.set(primary, nPrimary)
+    rem -= nPrimary * primary
+  }
+
+  // Dust settles downward so the rack sums to the bankroll EXACTLY. Without this the
+  // rack would be an approximation, and a player who can count chips would notice.
+  for (let i = pi + 1; i < CHIP_DENOMS.length; i++) {
+    const d = CHIP_DENOMS[i]
+    const n = Math.floor(rem / d)
+    if (n > 0) {
+      out.set(d, (out.get(d) ?? 0) + n)
+      rem -= n * d
+    }
+  }
+
+  // Descending, so the tray reads high-to-low left-to-right like a real chip well.
+  // $1000 → 9×$100, 3×$25, 5×$5 (17 chips). $500 → 4×$100, 3×$25, 5×$5 (12 chips).
+  return CHIP_DENOMS.filter(d => out.has(d)).map(d => ({ denom: d, count: out.get(d)! }))
 }
 
 /**

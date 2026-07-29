@@ -150,6 +150,24 @@ export class GameAudio {
     src.stop(t + dur + 0.02)
   }
 
+  /**
+   * The dealer reshuffling — a riffle: a burst of many tiny card ticks, then a soft
+   * square-up thud. Built as a rapid train of filtered noise clicks with randomised
+   * spacing, because a riffle IS many near-identical transients; a single noise burst
+   * reads as static instead of cards.
+   */
+  shuffle(): void {
+    if (!this.ctx || this.muted) return
+    let t = 0
+    for (let i = 0; i < 26; i++) {
+      this.noise(0.02, 0.032 + Math.random() * 0.02, 'bandpass', 2400 + Math.random() * 1800, 1.2, t)
+      t += 0.014 + Math.random() * 0.012
+    }
+    // The squared-up deck landing on the felt.
+    this.noise(0.09, 0.07, 'lowpass', 900, 0, t + 0.06)
+    this.tone(150, 0.09, 'triangle', 0.05, t + 0.06)
+  }
+
   /** Chip placed — a bright metallic clink (two pings over a tick of noise). */
   chip(): void {
     const j = this.jitter(0.06)

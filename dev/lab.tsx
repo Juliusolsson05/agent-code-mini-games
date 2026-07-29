@@ -10,7 +10,7 @@ import { BlackjackScene } from '../src/games/blackjack/scene'
 
 const DEALT: BJState = {
   phase: 'playing',
-  bankroll: 475,
+  bankroll: 1000,
   bet: 25,
   playerHands: [
     {
@@ -36,7 +36,7 @@ const DEALT: BJState = {
   lastNet: 0,
   stats: { hands: 0, wins: 0, losses: 0, pushes: 0, blackjacks: 0 },
   settings: { decks: 6, hitSoft17: false, startingBankroll: 500 },
-  shoeRemaining: 300,
+  shoeRemaining: 170,
 }
 
 const stage = document.getElementById('stage')
@@ -48,6 +48,8 @@ scene.update(DEALT)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const w = window as any
 w.__scene = scene
+// Force a tray fill for screenshot verification: __discard(0.45)
+w.__discard = (f: number) => (scene as unknown as { props: { setDiscardFill(n: number): void } }).props.setDiscardFill(f)
 w.__set = (partial: Partial<BJState>) => scene.update({ ...DEALT, ...partial })
 
 // ?state=win drives the scene to a settled winning hand so the payout stack (§9.4) can
