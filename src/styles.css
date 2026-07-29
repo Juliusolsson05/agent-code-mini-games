@@ -192,11 +192,6 @@
   margin-left: 4px;
   font-variant-numeric: tabular-nums;
 }
-.mg-snake-stats {
-  display: flex;
-  gap: 16px;
-  margin-left: 4px;
-}
 
 .mg-seg {
   display: inline-flex;
@@ -589,37 +584,6 @@
 }
 
 /* --- snake ---------------------------------------------------------------- */
-.mg-snake {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.mg-snake .mg-topbar {
-  width: 100%;
-}
-.mg-snake-board {
-  position: relative;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
-}
-.mg-snake-canvas {
-  display: block;
-  border-radius: 14px;
-}
-.mg-snake-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-align: center;
-  background: rgba(4, 6, 8, 0.6);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
 .mg-ov-title {
   font-size: 22px;
   font-weight: 700;
@@ -636,25 +600,6 @@
   color: var(--muted);
 }
 .mg-ov-sub kbd,
-.mg-snake-hint kbd {
-  font-family: var(--theme-font-code, ui-monospace, monospace);
-  font-size: 11px;
-  padding: 1px 5px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--ink);
-}
-.mg-snake-settings {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin-top: 14px;
-}
-.mg-snake-hint {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--faint);
-}
 
 /* ==========================================================================
    Blackjack "Steam-game" pass — larger table, 3D depth, richer motion.
@@ -665,9 +610,6 @@
   width: fit-content;
 }
 .mg-launcher,
-.mg-snake {
-  width: 480px;
-}
 .mg-bj {
   width: 860px;
 }
@@ -926,4 +868,139 @@
 }
 .mg-banner {
   z-index: 6;
+}
+
+/* ==========================================================================
+   Snake — a replica of Google Snake's chrome.
+   Colours are Google's exact values (see render/palette.ts); the checkerboard
+   itself is drawn on the canvas, not here.
+   ========================================================================== */
+.sn-root {
+  width: 860px;
+  height: 620px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #578a34; /* the grass apron around the board */
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+}
+.sn-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 16px;
+  background: #4a752c;
+  color: #fff;
+  flex: none;
+}
+.sn-back {
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 13px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.sn-back:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+.sn-stat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 20px;
+  font-weight: 700;
+  /* Tabular figures so the score doesn't jitter the layout as it climbs. */
+  font-variant-numeric: tabular-nums;
+}
+.sn-icon {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 17px;
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.sn-icon:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.sn-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.sn-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.sn-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* NO backdrop by default. Dimming the board before the first keypress washed the
+     whole checkerboard olive and made Google's lime palette look muddy — the board
+     should be fully lit and inviting while you're deciding to start. Only an
+     interruption (pause / game over) earns a scrim. */
+  background: none;
+  pointer-events: none;
+}
+.sn-overlay > * {
+  pointer-events: auto;
+}
+.sn-overlay.dim {
+  /* Tinted toward the board's green rather than neutral black, so the scrim reads as
+     part of the game rather than a browser dialog dropped on top of it. */
+  background: rgba(41, 71, 20, 0.55);
+}
+.sn-card {
+  background: #4a752c;
+  color: #fff;
+  padding: 26px 40px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+}
+.sn-card-title {
+  font-size: 26px;
+  font-weight: 700;
+}
+.sn-card-score {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.sn-card-sub {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.sn-play {
+  margin-top: 16px;
+  background: #f5c518;
+  color: #3a2a00;
+  border: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: 22px;
+  cursor: pointer;
+}
+.sn-play:hover {
+  filter: brightness(1.07);
+}
+.sn-foot {
+  flex: none;
+  padding: 8px 0 11px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  background: #4a752c;
 }

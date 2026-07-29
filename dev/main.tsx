@@ -94,6 +94,23 @@ mountMiniGames(devApi)(host)
 // ?autodeal — drive a hand automatically so a headless screenshot lands on the
 // dealt state (cards + chips on the felt), which is where the lighting/material work
 // actually shows. Purely a screenshot convenience; it just clicks the real UI.
+// ?autoplay — nudge Snake into motion so a headless screenshot captures live play
+// rather than the pre-start screen.
+if (new URLSearchParams(location.search).has('autoplay')) {
+  // A box pattern so the snake stays alive long enough to screenshot mid-play, instead
+  // of running straight into the right wall in ~1.5s.
+  const moves: Array<[number, string]> = [
+    [300, 'ArrowRight'],
+    [1000, 'ArrowDown'],
+    [1600, 'ArrowLeft'],
+    [2400, 'ArrowUp'],
+    [3000, 'ArrowRight'],
+  ]
+  for (const [at, key] of moves) {
+    setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key })), at)
+  }
+}
+
 if (new URLSearchParams(location.search).has('autodeal')) {
   const clickSel = (sel: string): boolean => {
     const el = document.querySelector<HTMLButtonElement>(sel)
