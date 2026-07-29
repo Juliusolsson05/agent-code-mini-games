@@ -29,6 +29,33 @@ const ROW_GAP = CHIP_R * 2.6
 const RACK_X = -FELT_W / 2 + 1.45
 const RACK_Z = FELT_D / 2 - 1.35
 
+/**
+ * Where the rack slides to when a hand is in play.
+ *
+ * ── WHY IT STOWS AT ALL ──
+ * A $1000 rack is 17 chips across four columns, which sits directly beside the player's
+ * hand and reads as clutter the moment cards are on the felt. But it can't just be
+ * hidden: the whole point (§ rack) is that you FEEL the bankroll move. So it's present
+ * exactly when money is the subject — placing a bet, and seeing the result — and tucked
+ * away while you're reading cards and choosing hit/stand.
+ *
+ * The offset slides the stack TOWARD THE PLAYER and slightly down, so it sinks into the
+ * raised leather rail and is occluded by real geometry. A fade would read as a rendering
+ * bug; sliding out of play reads as chips being set aside.
+ *
+ * Why toward the player rather than sideways: the rack is ~4 units wide, so clearing it
+ * off the LEFT edge needs a >6-unit slide (the first attempt used 2.9 and left two
+ * columns sitting on the felt). The near edge is only ~2 units away and the distance is
+ * independent of how many columns the bankroll happens to need — so this hides correctly
+ * whether you have $100 or $5000.
+ *
+ * The Y drop matters as much as the Z: at y ≈ −0.26 the chips are inside the table body's
+ * volume, so they're hidden by solid geometry rather than merely being off the cloth.
+ */
+const STOW_OFFSET = new THREE.Vector3(0, -0.35, 2.15)
+/** Approach rate of the stow animation, per second. */
+const STOW_EASE = 4.5
+
 const DROP_DURATION = 0.3
 const DROP_STAGGER = 0.04
 const LEAVE_DURATION = 0.34
@@ -51,8 +78,20 @@ type Seat = { denom: ChipValue; col: number; level: number }
 export class ChipRack {
   private chips: RackChip[] = []
   private lastBankroll = -1
+  /** All rack chips live under one group so stowing is a single transform. */
+  private group = new THREE.Group()
+  private stowed = false
+  /** Eased 0 → 1 stow progress; drives both the slide and the shrink. */
+  private stowT = 0
 
-  constructor(private scene: THREE.Scene) {}
+  constructor(private scene: THREE.Scene) {
+    this.scene.add(this.group)
+  }
+
+  /** Out during betting and settlement; tucked away while a hand is being played. */
+  setStowed(stowed: boolean): void {
+    this.stowed = stowed
+  }
 
   /**
    * Lay the breakdown out into seats. A NEW DENOMINATION ALWAYS STARTS A NEW COLUMN —
@@ -129,7 +168,7 @@ export class ChipRack {
       const list = byDenom.get(denom) ?? []
       for (let i = list.length; i < count; i++) {
         const mesh = makeChip(denom)
-        this.scene.add(mesh)
+        this.group.add(mesh)
         const chip: RackChip = {
           mesh,
           denom,
@@ -183,6 +222,25 @@ export class ChipRack {
 
   /** Advance the rack; `onLand` fires once per chip that settles, for the clink. */
   step(dt: number, scratch: THREE.Vector3, onLand: () => void): void {
+    // Ease the whole group toward its stowed/out position. Done on the GROUP rather than
+    // per chip so the stack moves as one object and never fights the per-chip drop and
+    // re-seat animations happening underneath it.
+    const target = this.stowed ? 1 : 0
+    this.stowT += (target - this.stowT) * Math.min(1, dt * STOW_EASE)
+    this.group.position.copy(STOW_OFFSET).multiplyScalar(this.stowT)
+    // Shrink to nothing as it goes.
+    //
+    // Relying on the rail/table body to OCCLUDE the stowed stack turned out to be
+    // fragile — the chips kept finding a sliver of geometry to peek through, and every
+    // fix depended on exact rail extents that change whenever the table does. Scaling
+    // away is unconditional: it cannot be defeated by geometry, and combined with the
+    // slide it reads as the stack receding out of play rather than blinking off.
+    const scale = 1 - 0.97 * this.stowT
+    this.group.scale.setScalar(Math.max(0.03, scale))
+    // Below this the stack is sub-pixel; hiding it outright saves the draw calls and
+    // avoids a degenerate transform.
+    this.group.visible = this.stowT < 0.985
+
     for (let i = this.chips.length - 1; i >= 0; i--) {
       const c = this.chips[i]
       c.t += dt
@@ -194,7 +252,7 @@ export class ChipRack {
       }
       if (t >= 1) {
         if (c.leaving) {
-          this.scene.remove(c.mesh)
+          this.group.remove(c.mesh)
           disposeChip(c.mesh)
           this.chips.splice(i, 1)
         } else if (!c.landed) {
@@ -206,10 +264,8 @@ export class ChipRack {
   }
 
   dispose(): void {
-    for (const c of this.chips) {
-      this.scene.remove(c.mesh)
-      disposeChip(c.mesh)
-    }
+    for (const c of this.chips) disposeChip(c.mesh)
     this.chips = []
+    this.scene.remove(this.group)
   }
 }

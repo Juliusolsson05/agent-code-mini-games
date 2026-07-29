@@ -296,6 +296,10 @@ export class BlackjackScene {
     this.props.setDiscardFill(total > 0 ? Math.min(1, this.discarded / total) : 0)
 
     this.rack.update(state.bankroll, this.reducedMotion)
+    // The rack is out only when money is the subject: placing a bet, and seeing the
+    // result. While cards are being played it slides under the rail so it can't compete
+    // with the hand for attention.
+    this.rack.setStowed(state.phase !== 'betting' && state.phase !== 'settle')
 
     this.updatePayout(state)
   }
