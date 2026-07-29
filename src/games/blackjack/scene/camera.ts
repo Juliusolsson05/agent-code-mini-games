@@ -53,14 +53,13 @@ export function fitCamera(camera: THREE.PerspectiveCamera, aspect: number): void
   camera.updateProjectionMatrix()
 }
 
-/**
- * A very slow parallax drift so a still table isn't a dead image (§4.3). Amplitude is
- * deliberately tiny — this must never change the framing, only keep the render alive.
- */
-export function driftCamera(camera: THREE.PerspectiveCamera, elapsedSec: number, enabled: boolean): void {
-  if (!enabled) return
-  const t = elapsedSec * ((Math.PI * 2) / 14) // ~14s period
-  camera.position.x += Math.sin(t) * 0.0009
-  camera.position.y += Math.cos(t * 0.7) * 0.0006
-  camera.lookAt(TARGET)
-}
+// NO IDLE CAMERA MOTION — removed deliberately (was §4.3).
+//
+// The original spec called for a slow parallax drift "so a still table isn't a dead
+// image". In practice the constant re-aim read as the whole table slowly rotating under
+// you, which is disorienting on a game you stare at for minutes at a time and actively
+// hurts the thing the long lens was chosen to provide: a stable, legible, near-orthographic
+// read of the felt. A card game wants a locked-off camera; the motion on screen should
+// come from the cards and chips, not the lens.
+//
+// The camera is now set once by fitCamera() and only moves on resize.

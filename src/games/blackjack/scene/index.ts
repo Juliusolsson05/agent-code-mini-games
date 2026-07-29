@@ -23,7 +23,7 @@ import {
   FLIP_LIFT,
   prefersReducedMotion,
 } from './animation'
-import { driftCamera, fitCamera, makeCamera } from './camera'
+import { fitCamera, makeCamera } from './camera'
 import { installLighting, type LightRig } from './lighting'
 import { disposeCard, disposeCardGeometry, makeCard } from './objects/card'
 import { chipJitter, disposeChipResources, makeChip } from './objects/chip'
@@ -389,7 +389,6 @@ export class BlackjackScene {
     if (this.disposed) return
     const dt = Math.min(0.05, this.clock.getDelta()) // clamp: a background tab can hand
     // back a multi-second delta and teleport everything
-    const elapsed = this.clock.elapsedTime
 
     for (const e of this.cards.values()) {
       e.t += dt
@@ -459,7 +458,6 @@ export class BlackjackScene {
     this.rack.step(dt, this.scratch, this.sfx.chipLand)
     this.props.step(dt)
 
-    driftCamera(this.camera, elapsed, !this.reducedMotion)
     this.renderer.render(this.scene, this.camera)
     this.raf = requestAnimationFrame(this.loop)
   }

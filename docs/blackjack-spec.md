@@ -224,11 +224,16 @@ bird's-eye look requested, while still being genuine 3D with real shadows and th
 
 `near = 1`, `far = 200`.
 
-### 4.3 Idle motion
+### 4.3 Idle motion — REMOVED
 
-A very slow parallax drift — amplitude ≤ 0.12 world units, period ~14 s, on X and Y only —
-so a still table is not a dead image. Never enough to change the framing. Disabled when
-`prefers-reduced-motion` is set.
+> **Superseded.** The spec originally called for a slow parallax drift so a still table
+> wouldn't be a dead image. In practice the constant re-aim read as **the whole table
+> slowly rotating under the player** — disorienting on a game you stare at for minutes,
+> and directly opposed to the stable, near-orthographic read the long lens was chosen to
+> deliver.
+
+**The camera is locked off.** It is set once by `fitCamera()` and moves only on resize.
+All motion on screen comes from the cards and chips, never the lens.
 
 ---
 
