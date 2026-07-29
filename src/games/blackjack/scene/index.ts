@@ -28,6 +28,7 @@ import { installLighting, type LightRig } from './lighting'
 import { disposeCard, disposeCardGeometry, makeCard } from './objects/card'
 import { chipJitter, disposeChipResources, makeChip } from './objects/chip'
 import { buildProps, type TableProps } from './objects/props'
+import { ChipRack } from './objects/rack'
 import { buildTable } from './objects/table'
 import { installRoom } from './room'
 import { disposeCardTextures } from './textures/cardTextures'
@@ -61,6 +62,9 @@ type CardEntry = {
   flipFrom: number
   /** Guards the one-shot landing sound. */
   landed: boolean
+  /** Yaw at the START of the current travel. Rotation is interpolated from this
+   *  deterministically rather than chased with a damped follow — see the loop. */
+  yawFrom: number
 }
 
 type ChipEntry = {
@@ -86,6 +90,8 @@ type RetiringCard = {
 export type SceneSfx = {
   cardLand(): void
   chipLand(): void
+  /** Fired once when a hand is swept to the discard tray — not once per card. */
+  cardSweep(): void
 }
 
 /**
@@ -124,13 +130,22 @@ export class BlackjackScene {
   private payoutShown = false
   private lastBet = -1
   private props: TableProps
+  private rack: ChipRack
+  /**
+   * Cards actually swept into the tray this shoe. Counted here rather than derived from
+   * `shoeRemaining`, because the engine reshuffles at 25% and that made the tray RESET
+   * mid-session. Counting what we physically sweep couples the tray to the animation the
+   * player watches: a card flies in, the stack grows by one card.
+   */
+  private discarded = 0
+  private lastShoeRemaining = Infinity
 
   /** Scratch vectors — the render loop must not allocate (§13.4). */
   private scratch = new THREE.Vector3()
 
   constructor(
     private container: HTMLElement,
-    private sfx: SceneSfx = { cardLand: () => {}, chipLand: () => {} },
+    private sfx: SceneSfx = { cardLand: () => {}, chipLand: () => {}, cardSweep: () => {} },
   ) {
     const w = Math.max(1, container.clientWidth)
     const h = Math.max(1, container.clientHeight)
@@ -152,6 +167,7 @@ export class BlackjackScene {
     this.lights = installLighting(this.scene, this.renderer)
     buildTable(this.scene)
     this.props = buildProps(this.scene)
+    this.rack = new ChipRack(this.scene)
 
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(container)
@@ -196,6 +212,7 @@ export class BlackjackScene {
             flipT: FLIP_DURATION, // starts settled; only a CHANGE animates
             flipFrom: faceDown ? Math.PI : 0,
             landed: false,
+            yawFrom: -0.5,
           }
           this.cards.set(card.id, entry)
           dealtSoFar++
@@ -206,6 +223,8 @@ export class BlackjackScene {
             entry.from.copy(entry.group.position)
             entry.to.copy(to)
             entry.t = this.reducedMotion ? entry.duration : 0
+            entry.yawFrom = entry.group.rotation.y
+            entry.landed = false
           }
           // The hole-card flip: only start one when the face state actually changes.
           if (entry.faceDown !== faceDown) {
@@ -240,9 +259,13 @@ export class BlackjackScene {
           yawTo: entry.group.rotation.y + 0.7 + Math.random() * 0.6,
         })
         retireIndex++
+        this.discarded++
         this.cards.delete(id)
       }
     }
+    // One swoosh for the whole sweep, not one per card — five overlapping swooshes is
+    // noise, and a dealer collecting a hand makes a single continuous sound.
+    if (retireIndex > 0) this.sfx.cardSweep()
 
     this.updateChips(state)
 
@@ -251,8 +274,14 @@ export class BlackjackScene {
     // makes the props read as part of a game in progress rather than scenery.
     const total = state.settings.decks * 52
     const remaining = Math.max(0, Math.min(total, state.shoeRemaining))
+    // A rising shoe count means the engine reshuffled — the discards went back in the box.
+    if (state.shoeRemaining > this.lastShoeRemaining) this.discarded = 0
+    this.lastShoeRemaining = state.shoeRemaining
+
     this.props.setShoeFill(total > 0 ? remaining / total : 0)
-    this.props.setDiscardFill(total > 0 ? 1 - remaining / total : 0)
+    this.props.setDiscardFill(total > 0 ? Math.min(1, this.discarded / total) : 0)
+
+    this.rack.update(state.bankroll, this.reducedMotion)
 
     this.updatePayout(state)
   }
@@ -360,10 +389,21 @@ export class BlackjackScene {
         e.group.position.copy(this.scratch)
       }
 
-      // Yaw: spin through the flight, then settle to the fanned angle. A card that
-      // glides at a fixed angle looks slid; one that turns as it travels looks thrown.
-      const spin = t > 0 && t < 1 ? Math.sin(Math.PI * t) * DEAL_SPIN : 0
-      e.group.rotation.y += (e.yaw + spin - e.group.rotation.y) * Math.min(1, dt * 11)
+      // Yaw, fully DETERMINISTIC.
+      //
+      // This was the "awkward and glitchy" rotation. The old version chased a moving
+      // target with a damped follow (`rotation.y += (target - current) * dt * k`) while
+      // the spin term was gated on `t < 1` — so at the instant travel completed the spin
+      // vanished and the damping snapped the card to its resting angle. Two easing
+      // paradigms fighting, with a discontinuity at the boundary.
+      //
+      // Now it is one closed-form expression of t: interpolate the base angle, add a
+      // half-sine spin that is exactly 0 at both ends. Continuous by construction, no
+      // damping lag, and it genuinely arrives.
+      if (t > 0) {
+        const base = e.yawFrom + (e.yaw - e.yawFrom) * easeOutCubic(t)
+        e.group.rotation.y = base + Math.sin(Math.PI * t) * DEAL_SPIN
+      }
 
       if (!e.landed && t >= 1) {
         e.landed = true
@@ -404,6 +444,7 @@ export class BlackjackScene {
 
     this.stepChips(this.chips, dt)
     this.stepChips(this.payouts, dt)
+    this.rack.step(dt, this.scratch, this.sfx.chipLand)
 
     driftCamera(this.camera, elapsed, !this.reducedMotion)
     this.renderer.render(this.scene, this.camera)
@@ -426,6 +467,7 @@ export class BlackjackScene {
     for (const entry of this.cards.values()) disposeCard(entry.group)
     this.cards.clear()
     this.chips = []
+    this.rack.dispose()
     this.lights.dispose()
     disposeCardGeometry()
     disposeChipResources()

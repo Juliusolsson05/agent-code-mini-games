@@ -53,6 +53,7 @@ export function Blackjack({
     const scene = new BlackjackScene(stageRef.current, {
       cardLand: () => audio.deal(),
       chipLand: () => audio.chip(),
+      cardSweep: () => audio.sweep(),
     })
     sceneRef.current = scene
     return () => {

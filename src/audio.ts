@@ -111,6 +111,45 @@ export class GameAudio {
     this.noise(0.05, 0.035, 'bandpass', 950 * j, 0.9, 0.035)
   }
 
+  /**
+   * Cards being swept off the felt into the discard tray — a longer, softer swoosh.
+   *
+   * Distinct from `deal()` on purpose: a deal is a single card striking felt (short,
+   * with a transient), a sweep is several cards dragging across cloth (longer, no
+   * attack, and it DECAYS in brightness as the cards slow). The downward filter sweep is
+   * what makes it read as motion ending rather than an object landing.
+   */
+  sweep(): void {
+    const ctx = this.ctx
+    if (!ctx || this.muted || !this.noiseBuf) return
+    const t = ctx.currentTime
+    const dur = 0.42
+    const j = this.jitter(0.08)
+
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuf
+    src.loop = true
+
+    const flt = ctx.createBiquadFilter()
+    flt.type = 'bandpass'
+    flt.Q.value = 0.85
+    // Bright at the start (cards moving fast), darkening as they settle.
+    flt.frequency.setValueAtTime(2100 * j, t)
+    flt.frequency.exponentialRampToValueAtTime(520 * j, t + dur)
+
+    const env = ctx.createGain()
+    // Slow attack — no click. A sweep has no impact moment.
+    env.gain.setValueAtTime(0.0001, t)
+    env.gain.linearRampToValueAtTime(0.075, t + 0.09)
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+
+    src.connect(flt)
+    flt.connect(env)
+    env.connect(ctx.destination)
+    src.start(t)
+    src.stop(t + dur + 0.02)
+  }
+
   /** Chip placed — a bright metallic clink (two pings over a tick of noise). */
   chip(): void {
     const j = this.jitter(0.06)

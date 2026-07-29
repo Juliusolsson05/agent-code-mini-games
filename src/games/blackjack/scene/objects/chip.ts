@@ -48,6 +48,17 @@ export function chipJitter(): { x: number; z: number } {
   return { x: (Math.random() - 0.5) * 0.02, z: (Math.random() - 0.5) * 0.02 }
 }
 
+/**
+ * Release one chip. Intentionally a NO-OP on geometry and materials — both are shared
+ * across every chip on the table (see the caches above), so freeing them here would pull
+ * the rug out from under every other chip. The caller removes the mesh from the scene;
+ * the shared resources live until `disposeChipResources()` at teardown.
+ */
+export function disposeChip(_mesh: THREE.Mesh): void {
+  // Nothing per-chip to free. Kept as a named call so ownership is explicit at call
+  // sites rather than an unexplained absence.
+}
+
 export function disposeChipResources(): void {
   geometry?.dispose()
   geometry = null
