@@ -1047,7 +1047,10 @@
   --ms-face: #c0c0c0;
   --ms-light: #ffffff;
   --ms-shadow: #808080;
-  --ms-cell: 26px;
+  /* Fallback only — the live value is set per level from CELL_PX in Minesweeper.tsx,
+     because a 9x9 and a 30x16 board cannot share one cell size and still both look
+     deliberate. */
+  --ms-cell: 32px;
   /* The classic pixel font. Falls back through the usual suspects; the shapes
      matter less than the weight, which must be heavy enough to read at 26px. */
   font-family: 'Segoe UI', Tahoma, Verdana, system-ui, sans-serif;

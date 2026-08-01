@@ -11,6 +11,22 @@ import {
 
 const BEST_KEY = 'minesweeper.best'
 
+/**
+ * Cell size per level, chosen so every board fills a comparable footprint.
+ *
+ * A fixed cell size makes Beginner a postage stamp floating in a huge modal while Expert
+ * sprawls — 9 columns and 30 columns cannot share one number. Scaling inversely with the
+ * board keeps the WINDOW roughly constant instead: Beginner 9x48=432, Intermediate
+ * 16x32=512, Expert 30x24=720. Bigger cells on the easy board is also just better — it's
+ * the one people play casually, and there is no reason to render it small when the room
+ * is there.
+ */
+const CELL_PX: Record<Level, number> = {
+  beginner: 48,
+  intermediate: 32,
+  expert: 24,
+}
+
 /** Win95 number colours. Non-negotiable — these ARE Minesweeper. */
 const NUM_COLOR = [
   '', // 0 renders empty
@@ -96,7 +112,11 @@ export function Minesweeper({ api, onExit }: { api: AgentCodeApiV1; onExit: () =
   const best = snap.best[snap.level]
 
   return (
-    <div className="ms-root" onContextMenu={e => e.preventDefault()}>
+    <div
+      className="ms-root"
+      style={{ ['--ms-cell' as string]: `${CELL_PX[snap.level]}px` }}
+      onContextMenu={e => e.preventDefault()}
+    >
       <div className="mg-topbar">
         <button className="mg-icon-btn" onClick={onExit} title="Back to games">
           ‹ Games
@@ -154,7 +174,7 @@ export function Minesweeper({ api, onExit }: { api: AgentCodeApiV1; onExit: () =
                   onMouseUp={e => onCellUp(e, x, y)}
                 >
                   {cell.mark === 'flag' ? (
-                    <Flag size={14} />
+                    <Flag size={Math.round(CELL_PX[snap.level] * 0.62)} />
                   ) : cell.mark === 'question' ? (
                     <span className="ms-question">?</span>
                   ) : null}
@@ -170,7 +190,7 @@ export function Minesweeper({ api, onExit }: { api: AgentCodeApiV1; onExit: () =
                 onMouseUp={e => onCellUp(e, x, y)}
               >
                 {cell.mine ? (
-                  <Mine size={14} />
+                  <Mine size={Math.round(CELL_PX[snap.level] * 0.62)} />
                 ) : cell.adjacent > 0 ? (
                   <span className="ms-num" style={{ color: NUM_COLOR[cell.adjacent] }}>
                     {cell.adjacent}
@@ -185,7 +205,7 @@ export function Minesweeper({ api, onExit }: { api: AgentCodeApiV1; onExit: () =
           {snap.cells.map((cell, i) =>
             cell.wrongFlag ? (
               <div key={`w${i}`} className="ms-wrong" style={{ gridArea: `${Math.floor(i / snap.cols) + 1} / ${(i % snap.cols) + 1}` }}>
-                <Mine size={14} />
+                <Mine size={Math.round(CELL_PX[snap.level] * 0.62)} />
                 <span className="ms-x" />
               </div>
             ) : null,
