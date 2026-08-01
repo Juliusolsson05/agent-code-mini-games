@@ -1,14 +1,15 @@
 {
   "id": "mini-games",
   "name": "Mini Games",
-  "description": "A little arcade inside Agent Code \u2014 starting with a fully-featured, casino-grade Blackjack.",
-  "version": "0.5.0",
+  "description": "A little arcade inside Agent Code \u2014 3D Blackjack, Google-style Snake, and classic Minesweeper.",
+  "version": "0.6.0",
   "apiVersion": 1,
   "entry": "dist/index.js",
   "activationEvents": [
     "onCommand:mini-games.open",
     "onCommand:mini-games.blackjack",
-    "onCommand:mini-games.snake"
+    "onCommand:mini-games.snake",
+    "onCommand:mini-games.minesweeper"
   ],
   "contributes": {
     "commands": [
@@ -43,6 +44,18 @@
           "cards",
           "casino",
           "game"
+        ]
+      },
+      {
+        "id": "mini-games.minesweeper",
+        "title": "Play Minesweeper",
+        "keywords": [
+          "minesweeper",
+          "mines",
+          "puzzle",
+          "game",
+          "classic",
+          "windows"
         ]
       }
     ],

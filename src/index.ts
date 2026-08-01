@@ -17,6 +17,7 @@ export const { activate, deactivate } = defineExtension({
       context.registerView('mini-games.main', mountMiniGames(context.api)),
       context.registerCommand('mini-games.blackjack', () => router.show('blackjack')),
       context.registerCommand('mini-games.snake', () => router.show('snake')),
+      context.registerCommand('mini-games.minesweeper', () => router.show('minesweeper')),
     )
   },
 

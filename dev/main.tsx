@@ -81,7 +81,12 @@ const devApi: AgentCodeApiV1 = {
 // Land straight on whatever we're iterating on. Default = blackjack (the WebGL work);
 // override with ?game=launcher or ?game=snake. The in-app "‹ Games" button still works.
 const requested = new URLSearchParams(location.search).get('game')
-if (requested === 'launcher' || requested === 'snake' || requested === 'blackjack') {
+if (
+  requested === 'launcher' ||
+  requested === 'snake' ||
+  requested === 'blackjack' ||
+  requested === 'minesweeper'
+) {
   router.show(requested)
 } else {
   router.show('blackjack')
@@ -109,6 +114,19 @@ if (new URLSearchParams(location.search).has('autoplay')) {
   for (const [at, key] of moves) {
     setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key })), at)
   }
+}
+
+// ?autosweep — click a middle cell so a screenshot lands on an OPENED region, which is
+// where the number colours and the opened-cell bevel treatment actually show.
+if (new URLSearchParams(location.search).has('autosweep')) {
+  setTimeout(() => {
+    const cells = document.querySelectorAll<HTMLElement>('.ms-cell')
+    const target = cells[Math.floor(cells.length / 2) + 2]
+    if (target) {
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))
+      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }))
+    }
+  }, 500)
 }
 
 if (new URLSearchParams(location.search).has('autodeal')) {

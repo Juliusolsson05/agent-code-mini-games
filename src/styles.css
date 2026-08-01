@@ -27,8 +27,15 @@
 
   font-family: var(--theme-app-font, ui-sans-serif, system-ui, -apple-system, sans-serif);
   color: var(--ink);
+  /* The launcher's natural width. Game screens override this below. */
   width: 520px;
-  max-width: 92vw;
+  /* NO max-width in viewport units.
+   *
+   * `vw` inside the extension resolves against the IFRAME's viewport — and the host
+   * sizes that iframe FROM this element's measured width. A vw clamp here therefore
+   * makes our width depend on our own width, which is precisely the resize feedback
+   * loop the host's measurement is built to avoid. The host scales an oversized frame
+   * to fit the window, so clamping here is both wrong and unnecessary. */
   margin: -1px;
   border-radius: inherit;
   background: var(--bg);
@@ -36,6 +43,26 @@
   user-select: none;
   -webkit-user-select: none;
 }
+/* A game screen defines its own stage (860px). The root must WRAP it rather than clamp
+ * it to the launcher's 520px.
+ *
+ * With the clamp, the 860px table overflowed its own 520px root — and the host measures
+ * #root.scrollWidth, so the modal ended up 520px wide with the right third of the table
+ * hanging outside it. In the dev harness that spill is merely visible (nothing clips),
+ * which is exactly why this survived every screenshot; inside the real modal
+ * DialogContent is overflow-hidden, so the same spill is CLIPPED. */
+.mg-root:has(.mg-bj),
+.mg-root:has(.sn-root),
+.mg-root:has(.ms-root) {
+  /* max-content, NOT auto or fit-content. Both of those are capped by the AVAILABLE
+   * width, and the available width is the iframe — which the host derives from what we
+   * measure. They settle at a fixed point where the stage still overflows by exactly the
+   * padding (876px for an 892px need), so the right edge stays clipped. max-content
+   * ignores the available width and reports the stage's true natural size, which is the
+   * only value that terminates with nothing overflowing. */
+  width: max-content;
+}
+
 .mg-root * {
   box-sizing: border-box;
 }
@@ -109,6 +136,9 @@
 }
 .mg-tile-art.snake {
   background: #0a0b12;
+}
+.mg-tile-art.ms {
+  background: #bdbdbd;
 }
 .mg-tile-body {
   padding: 12px 14px 14px;
@@ -1003,4 +1033,166 @@
   font-size: 12px;
   color: rgba(255, 255, 255, 0.72);
   background: #4a752c;
+}
+
+/* ==========================================================================
+   Minesweeper — Windows 95, reproduced.
+   The entire look is BEVELS: a raised element has a white top-left and a grey
+   bottom-right; a sunken one has them swapped. Win95 drew these as 2px borders,
+   so they are borders here too rather than box-shadows — a border participates
+   in layout, which is what keeps the grid on exact pixel boundaries and stops
+   the field seams shimmering.
+   ========================================================================== */
+.ms-root {
+  --ms-face: #c0c0c0;
+  --ms-light: #ffffff;
+  --ms-shadow: #808080;
+  --ms-cell: 26px;
+  /* The classic pixel font. Falls back through the usual suspects; the shapes
+     matter less than the weight, which must be heavy enough to read at 26px. */
+  font-family: 'Segoe UI', Tahoma, Verdana, system-ui, sans-serif;
+}
+.ms-levels {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+/* The game window: raised. */
+.ms-window {
+  background: var(--ms-face);
+  border-top: 3px solid var(--ms-light);
+  border-left: 3px solid var(--ms-light);
+  border-right: 3px solid var(--ms-shadow);
+  border-bottom: 3px solid var(--ms-shadow);
+  padding: 6px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+/* The status panel: sunken. */
+.ms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ms-face);
+  border-top: 2px solid var(--ms-shadow);
+  border-left: 2px solid var(--ms-shadow);
+  border-right: 2px solid var(--ms-light);
+  border-bottom: 2px solid var(--ms-light);
+  padding: 4px 5px;
+  margin-bottom: 6px;
+}
+.ms-led {
+  display: flex;
+  gap: 1px;
+  background: #000000;
+  padding: 2px 3px;
+  border-top: 1px solid var(--ms-shadow);
+  border-left: 1px solid var(--ms-shadow);
+  border-right: 1px solid var(--ms-light);
+  border-bottom: 1px solid var(--ms-light);
+}
+.ms-face {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  background: var(--ms-face);
+  border-top: 2px solid var(--ms-light);
+  border-left: 2px solid var(--ms-light);
+  border-right: 2px solid var(--ms-shadow);
+  border-bottom: 2px solid var(--ms-shadow);
+}
+/* Pressed = the bevel inverts. The 1px offset is the button physically moving. */
+.ms-face:active {
+  border-color: var(--ms-shadow) var(--ms-light) var(--ms-light) var(--ms-shadow);
+  padding: 1px 0 0 1px;
+}
+
+/* The minefield: sunken. */
+.ms-field {
+  display: grid;
+  background: var(--ms-face);
+  border-top: 3px solid var(--ms-shadow);
+  border-left: 3px solid var(--ms-shadow);
+  border-right: 3px solid var(--ms-light);
+  border-bottom: 3px solid var(--ms-light);
+}
+.ms-cell {
+  width: var(--ms-cell);
+  height: var(--ms-cell);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  background: var(--ms-face);
+  font-size: calc(var(--ms-cell) * 0.62);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+/* Unrevealed: raised. */
+.ms-hidden {
+  cursor: pointer;
+  border-top: 3px solid var(--ms-light);
+  border-left: 3px solid var(--ms-light);
+  border-right: 3px solid var(--ms-shadow);
+  border-bottom: 3px solid var(--ms-shadow);
+}
+/* Revealed: flat, with only a hairline grid line on the top/left. This single-line
+   treatment (rather than a full box) is what makes an opened region read as one
+   continuous depressed area instead of a lattice of separate tiles. */
+/* box-sizing is border-box globally (.mg-root *), so `width: var(--ms-cell)` is the
+ * OUTER size with borders included, and every tile — raised or opened — occupies exactly
+ * one grid column. Sizing them larger to "make room for the border" pushes tiles out of
+ * their column and breaks the flush packing a minefield depends on. */
+.ms-open {
+  border: none;
+  border-top: 1px solid var(--ms-shadow);
+  border-left: 1px solid var(--ms-shadow);
+}
+/* The mine you actually detonated — the only red cell on the board. */
+.ms-boom {
+  background: #ff0000;
+}
+.ms-num {
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-weight: 800;
+}
+.ms-question {
+  color: #000000;
+  font-weight: 800;
+}
+.ms-wrong {
+  position: relative;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+/* The strike-through on a flag that wasn't a mine. */
+.ms-x::before,
+.ms-x::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 50%;
+  height: 2px;
+  background: #ff0000;
+}
+.ms-x::before {
+  transform: rotate(45deg);
+}
+.ms-x::after {
+  transform: rotate(-45deg);
+}
+.ms-foot {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
 }

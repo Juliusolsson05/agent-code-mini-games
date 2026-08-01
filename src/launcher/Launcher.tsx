@@ -37,6 +37,54 @@ function SnakeArt() {
   )
 }
 
+function MinesweeperArt() {
+  // A fragment of the field: two opened cells with numbers, a flag, and a raised tile —
+  // the Win95 bevel language in miniature.
+  return (
+    <div className="mg-tile-art ms">
+      <svg viewBox="0 0 140 96" width="140" height="96" aria-hidden="true">
+        <g shapeRendering="crispEdges">
+          {[0, 1, 2, 3].map(i => {
+            const x = 22 + (i % 2) * 34
+            const y = 20 + Math.floor(i / 2) * 34
+            const open = i === 1 || i === 2
+            return (
+              <g key={i}>
+                <rect x={x} y={y} width="32" height="32" fill="#c0c0c0" />
+                {open ? (
+                  <>
+                    <rect x={x} y={y} width="32" height="1.5" fill="#808080" />
+                    <rect x={x} y={y} width="1.5" height="32" fill="#808080" />
+                  </>
+                ) : (
+                  <>
+                    <rect x={x} y={y} width="32" height="3" fill="#ffffff" />
+                    <rect x={x} y={y} width="3" height="32" fill="#ffffff" />
+                    <rect x={x} y={y + 29} width="32" height="3" fill="#808080" />
+                    <rect x={x + 29} y={y} width="3" height="32" fill="#808080" />
+                  </>
+                )}
+              </g>
+            )
+          })}
+        </g>
+        {/* Glyphs are centred on each 32px cell via text-anchor, not eyeballed offsets —
+            at this size a few px off reads as broken rather than merely imprecise. */}
+        <g textAnchor="middle" fontFamily="Courier New, monospace" fontSize="21" fontWeight="800">
+          <text x="72" y="44" fill="#0000ff">1</text>
+          <text x="38" y="78" fill="#008000">2</text>
+        </g>
+        <g transform="translate(64 61) scale(1.05)">
+          <path d="M7.5 2.5 L7.5 7.5 L3 5 Z" fill="#ff0000" />
+          <rect x="7" y="2.5" width="1.2" height="8.5" fill="#000000" />
+          <rect x="4.5" y="11" width="7" height="1.4" fill="#000000" />
+          <rect x="3" y="12.4" width="10" height="1.6" fill="#000000" />
+        </g>
+      </svg>
+    </div>
+  )
+}
+
 function Tile({
   onClick,
   art,
@@ -71,6 +119,12 @@ export function Launcher({ onPlay }: { onPlay: (screen: Screen) => void }) {
       <div className="mg-grid">
         <Tile onClick={() => onPlay('blackjack')} art={<BlackjackArt />} name="Blackjack" desc="Beat the dealer to 21" />
         <Tile onClick={() => onPlay('snake')} art={<SnakeArt />} name="Snake" desc="Eat, grow, don't crash" />
+        <Tile
+          onClick={() => onPlay('minesweeper')}
+          art={<MinesweeperArt />}
+          name="Minesweeper"
+          desc="Clear the field, don't dig"
+        />
       </div>
     </div>
   )
