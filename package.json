@@ -1,9 +1,9 @@
 {
   "name": "agent-code-mini-games",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.5.0",
   "type": "module",
-  "description": "Mini-games for Agent Code — starting with Blackjack",
+  "description": "Mini-games for Agent Code \u2014 starting with Blackjack",
   "scripts": {
     "build": "vite build && tsc --noEmit",
     "dev": "vite build --watch",
