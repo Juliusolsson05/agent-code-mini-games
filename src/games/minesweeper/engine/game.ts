@@ -48,6 +48,12 @@ const NEIGHBOURS = [
   [-1, 1], [0, 1], [1, 1],
 ] as const
 
+export type MinesweeperOptions = {
+  /** Injected sources keep the actual game rules testable without replacing globals. */
+  now?: () => number
+  random?: () => number
+}
+
 export class MinesweeperGame {
   private level: Level = 'beginner'
   private cols = 9
@@ -56,16 +62,21 @@ export class MinesweeperGame {
   private cells: Cell[] = []
   private status: Status = 'ready'
   private placed = false
-  private startedAt = 0
+  private startedAt: number | null = null
   private elapsed = 0
+  private lastPublishedTime = 0
   private peeking = false
+  private readonly now: () => number
+  private readonly random: () => number
   private best: Record<Level, number | null> = {
     beginner: null,
     intermediate: null,
     expert: null,
   }
 
-  constructor(private onChange: (s: MinesweeperSnapshot) => void) {
+  constructor(private onChange: (s: MinesweeperSnapshot) => void, options: MinesweeperOptions = {}) {
+    this.now = options.now ?? Date.now
+    this.random = options.random ?? Math.random
     this.reset('beginner')
   }
 
@@ -73,7 +84,7 @@ export class MinesweeperGame {
     return y * this.cols + x
   }
   private inBounds(x: number, y: number): boolean {
-    return x >= 0 && y >= 0 && x < this.cols && y < this.rows
+    return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < this.cols && y < this.rows
   }
 
   reset(level: Level = this.level): void {
@@ -92,14 +103,23 @@ export class MinesweeperGame {
     }))
     this.status = 'ready'
     this.placed = false
-    this.startedAt = 0
+    this.startedAt = null
     this.elapsed = 0
     this.peeking = false
     this.emit()
   }
 
   setBest(best: Partial<Record<Level, number | null>>): void {
-    this.best = { ...this.best, ...best }
+    // Storage is an asynchronous, untrusted boundary. A late response must never erase
+    // a record earned since the read began, and malformed values must not poison the
+    // comparison forever (NaN in particular would make every future win lose).
+    if (!best || typeof best !== 'object') return
+    for (const level of Object.keys(LEVELS) as Level[]) {
+      const value = best[level]
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 999) continue
+      const current = this.best[level]
+      if (current === null || value < current) this.best[level] = value
+    }
     this.emit()
   }
 
@@ -130,7 +150,7 @@ export class MinesweeperGame {
     // Fisher–Yates, partial: we only need the first `mineCount` entries.
     const n = Math.min(this.mineCount, pool.length)
     for (let i = 0; i < n; i++) {
-      const j = i + Math.floor(Math.random() * (pool.length - i))
+      const j = i + Math.floor(this.random() * (pool.length - i))
       ;[pool[i], pool[j]] = [pool[j], pool[i]]
       this.cells[pool[i]].mine = true
     }
@@ -187,7 +207,7 @@ export class MinesweeperGame {
     if (!this.placed) {
       this.placeMines(x, y)
       this.status = 'playing'
-      this.startedAt = Date.now()
+      this.startedAt = this.now()
     }
 
     if (cell.mine) {
@@ -251,8 +271,12 @@ export class MinesweeperGame {
   }
 
   private lose(): void {
-    this.status = 'lost'
+    // Freeze the clock BEFORE changing status. Zero is a perfectly valid finishing
+    // time, not a sentinel: using `elapsed || runningTime` made instant losses keep
+    // ticking forever when a later render asked for a snapshot.
     this.elapsed = this.currentTime()
+    this.status = 'lost'
+    this.peeking = false
     for (const c of this.cells) {
       // Reveal every mine, and mark flags that were wrong — the post-mortem the original
       // shows you so you can see where your reasoning went bad.
@@ -265,8 +289,9 @@ export class MinesweeperGame {
   private checkWin(): void {
     const done = this.cells.every(c => c.mine || c.revealed)
     if (!done) return
-    this.status = 'won'
     this.elapsed = this.currentTime()
+    this.status = 'won'
+    this.peeking = false
     // The original auto-flags every remaining mine on a win.
     for (const c of this.cells) if (c.mine) c.mark = 'flag'
     const prev = this.best[this.level]
@@ -274,20 +299,21 @@ export class MinesweeperGame {
   }
 
   setPeeking(peeking: boolean): void {
+    if (this.status === 'won' || this.status === 'lost') peeking = false
     if (this.peeking === peeking) return
     this.peeking = peeking
     this.emit()
   }
 
   private currentTime(): number {
-    if (!this.startedAt) return 0
-    if (this.status === 'won' || this.status === 'lost') return this.elapsed || Math.min(999, Math.floor((Date.now() - this.startedAt) / 1000))
-    return Math.min(999, Math.floor((Date.now() - this.startedAt) / 1000))
+    if (this.status === 'won' || this.status === 'lost') return this.elapsed
+    if (this.startedAt === null) return 0
+    return Math.max(0, Math.min(999, Math.floor((this.now() - this.startedAt) / 1000)))
   }
 
   /** Called on a timer by the view; only emits while the clock is actually running. */
   tick(): void {
-    if (this.status === 'playing') this.emit()
+    if (this.status === 'playing' && this.currentTime() !== this.lastPublishedTime) this.emit()
   }
 
   getSnapshot(): MinesweeperSnapshot {
@@ -296,7 +322,10 @@ export class MinesweeperGame {
       level: this.level,
       cols: this.cols,
       rows: this.rows,
-      cells: this.cells,
+      // A published snapshot is a historical value, never an editor for the engine.
+      // React keeps previous snapshots during concurrent renders; sharing cell objects
+      // would silently rewrite those renders as well as let consumers mutate the rules.
+      cells: this.cells.map(cell => ({ ...cell })),
       status: this.status,
       minesLeft: this.mineCount - flags,
       time: this.currentTime(),
@@ -310,6 +339,8 @@ export class MinesweeperGame {
   }
 
   private emit(): void {
-    this.onChange(this.getSnapshot())
+    const snapshot = this.getSnapshot()
+    this.lastPublishedTime = snapshot.time
+    this.onChange(snapshot)
   }
 }
