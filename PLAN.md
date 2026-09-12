@@ -32,7 +32,7 @@ The parent owns shared integration, Snake engine/types, Blackjack engine/types, 
 - [x] Create feature Issue #1 and dedicated worktree.
 - [x] Define contracts and implement game improvements.
 - [x] Behavioral tests, production build and browser QA.
-- [ ] Final review and PR.
+- [x] Final review and PR: https://github.com/Juliusolsson05/agent-code-mini-games/pull/8
 
 ## Verified implementation
 
