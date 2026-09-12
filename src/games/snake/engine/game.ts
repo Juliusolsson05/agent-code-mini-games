@@ -1,210 +1,190 @@
-// Snake rules, replicating Google Snake's behaviour exactly.
-//
-// The engine is PURE GRID: it knows cells, not pixels. The only concession to rendering
-// is `t`, the 0→1 progress toward the next cell, which the renderer needs to interpolate
-// smooth motion. Keeping pixels out of here is what let the previous version's renderer
-// be thrown away and rewritten without touching a single rule.
-
-/** Google's board is 17 wide × 15 tall. Not square — a common mistake when copying it. */
+// The simulation speaks cells and milliseconds. Rendering is deliberately one completed
+// move behind the grid: interpolating a known move cannot predict through a wall or
+// briefly point the head the wrong way when a buffered corner is consumed.
 export const COLS = 17
 export const ROWS = 15
-
-/**
- * Milliseconds per cell. CONSTANT — Google Snake does not accelerate as you score, and
- * that's deliberate: a constant tempo is what makes it a planning game rather than a
- * reflex game. An earlier version ramped the speed and it just felt punishing.
- */
-export const STEP_MS = 125
-
+export const PACES = {
+  relaxed: { label: 'Chill', stepMs: 170 },
+  classic: { label: 'Classic', stepMs: 125 },
+  swift: { label: 'Quick', stepMs: 90 },
+} as const
+export const STEP_MS = PACES.classic.stepMs
+export type Pace = keyof typeof PACES
 export type Dir = 'up' | 'down' | 'left' | 'right'
 export type Cell = { x: number; y: number }
-export type Status = 'ready' | 'playing' | 'paused' | 'dead'
-
+export type Status = 'ready' | 'playing' | 'paused' | 'dead' | 'won'
+export type Records = Record<Pace, number>
 export const DIR_VEC: Record<Dir, Cell> = {
-  up: { x: 0, y: -1 },
-  down: { x: 0, y: 1 },
-  left: { x: -1, y: 0 },
-  right: { x: 1, y: 0 },
+  up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 },
 }
-
 const OPPOSITE: Record<Dir, Dir> = { up: 'down', down: 'up', left: 'right', right: 'left' }
-
 export type SnakeSnapshot = {
   status: Status
-  /** Head first. */
+  /** Head first; previousSnake is the starting pose of this completed logical move. */
   snake: Cell[]
-  apple: Cell
+  previousSnake: Cell[]
+  apple: Cell | null
   dir: Dir
   score: number
   best: number
-  /** 0→1 progress toward the next cell, for smooth rendering. */
+  pace: Pace
+  stepMs: number
+  /** Interpolation preserves its exact fraction across pause/resume. */
   t: number
-  /** True on the step where the tail must NOT retract (we just ate). */
   growing: boolean
+  /** A renderer can reset particles and celebrations without guessing from score. */
+  runId: number
 }
+export type SnakeEvents = { ate: boolean; died: boolean; turned: boolean; won: boolean }
+const events = (): SnakeEvents => ({ ate: false, died: false, turned: false, won: false })
+const copy = (cells: Cell[]): Cell[] => cells.map(c => ({ ...c }))
 
 export class SnakeGame {
   private snake: Cell[] = []
-  private apple: Cell = { x: 0, y: 0 }
+  private previous: Cell[] = []
+  private apple: Cell | null = null
   private dir: Dir = 'right'
-  /**
-   * Turns are QUEUED, up to two deep.
-   *
-   * Without a queue, two fast keypresses inside one 125ms step overwrite each other and
-   * the first is silently dropped — which feels exactly like the game ignoring you, and
-   * is the single most common complaint about amateur Snake clones. Google buffers, so
-   * "right then down" always executes as a two-step turn even if typed in 40ms.
-   */
   private queue: Dir[] = []
   private status: Status = 'ready'
   private acc = 0
   private growing = false
   private score = 0
-  private best = 0
+  private records: Records = { relaxed: 0, classic: 0, swift: 0 }
+  private pace: Pace
+  private runId = 0
+  private pending = events()
+  private random: () => number
 
-  constructor(private onChange: (s: SnakeSnapshot) => void) {
+  constructor(private onChange: (s: SnakeSnapshot) => void,
+    options: { pace?: Pace; random?: () => number } = {}) {
+    this.pace = options.pace ?? 'classic'
+    this.random = options.random ?? Math.random
     this.reset()
   }
 
-  reset(): void {
-    // Google starts with a length-4 snake near the left edge, heading right.
+  reset(pace: Pace = this.pace): void {
+    this.pace = pace
     const y = Math.floor(ROWS / 2)
-    this.snake = [
-      { x: 4, y },
-      { x: 3, y },
-      { x: 2, y },
-      { x: 1, y },
-    ]
+    this.snake = [4, 3, 2, 1].map(x => ({ x, y }))
+    this.previous = copy(this.snake)
+    // A predictable first apple teaches the controls before random routing begins.
+    this.apple = { x: 12, y }
     this.dir = 'right'
     this.queue = []
     this.acc = 0
     this.growing = false
     this.score = 0
     this.status = 'ready'
-    this.spawnApple()
+    this.pending = events()
+    this.runId++
     this.emit()
   }
 
-  setBest(best: number): void {
-    this.best = best
+  setRecords(values: Partial<Records>): void {
+    // Async storage may arrive after the player has earned a record. Merge upward;
+    // loading an old value must never erase an achievement from this live session.
+    for (const pace of Object.keys(PACES) as Pace[]) {
+      const value = values[pace]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+        this.records[pace] = Math.max(this.records[pace], Math.floor(value))
+    }
     this.emit()
   }
+  setBest(best: number): void { this.setRecords({ [this.pace]: best }) }
+  getRecords(): Records { return { ...this.records } }
 
-  /** Begins play on the first directional input, exactly as Google does. */
-  turn(dir: Dir): void {
-    if (this.status === 'dead') return
-    if (this.status === 'ready') this.status = 'playing'
-    if (this.status === 'paused') return
-
-    // Compare against the last QUEUED direction, not the current one — otherwise a
-    // buffered turn can be reversed into the snake's own neck.
-    const last = this.queue.length ? this.queue[this.queue.length - 1] : this.dir
-    if (dir === last || dir === OPPOSITE[last]) return
-    if (this.queue.length < 2) this.queue.push(dir)
+  turn(dir: Dir): boolean {
+    if (this.status === 'dead' || this.status === 'won' || this.status === 'paused') return false
+    if (this.status === 'ready') {
+      if (dir === OPPOSITE[this.dir]) return false
+      this.dir = dir
+      this.status = 'playing'
+      // Begin the first visual move on this input, rather than waiting a whole cell
+      // interval before anything responds. Subsequent moves share the same clock.
+      this.pending = this.step()
+      this.emit()
+      return true
+    }
+    const last = this.queue[this.queue.length - 1] ?? this.dir
+    if (dir === last || dir === OPPOSITE[last] || this.queue.length >= 2) return false
+    this.queue.push(dir)
+    return true
   }
 
+  pause(): void {
+    if (this.status !== 'playing') return
+    this.status = 'paused'
+    this.queue = []
+    this.emit()
+  }
   togglePause(): void {
-    if (this.status === 'playing') this.status = 'paused'
-    else if (this.status === 'paused') this.status = 'playing'
-    this.emit()
+    if (this.status === 'playing') this.pause()
+    else if (this.status === 'paused') { this.status = 'playing'; this.emit() }
   }
 
-  /** Advance by `dtMs`. Returns events the caller turns into sound. */
-  update(dtMs: number): { ate: boolean; died: boolean; turned: boolean } {
-    const events = { ate: false, died: false, turned: false }
-    if (this.status !== 'playing') return events
-
-    this.acc += dtMs
-    while (this.acc >= STEP_MS) {
-      this.acc -= STEP_MS
-      const r = this.step()
-      events.ate ||= r.ate
-      events.died ||= r.died
-      events.turned ||= r.turned
-      if (r.died) break
+  update(dtMs: number): SnakeEvents {
+    const out = this.pending
+    this.pending = events()
+    if (this.status !== 'playing') return out
+    this.acc += Math.max(0, Number.isFinite(dtMs) ? dtMs : 0)
+    const stepMs = PACES[this.pace].stepMs
+    while (this.acc >= stepMs && this.status === 'playing') {
+      this.acc -= stepMs
+      const next = this.step()
+      out.ate ||= next.ate
+      out.died ||= next.died
+      out.turned ||= next.turned
+      out.won ||= next.won
     }
     this.emit()
-    return events
+    return out
   }
 
-  private step(): { ate: boolean; died: boolean; turned: boolean } {
-    let turned = false
+  private step(): SnakeEvents {
+    const out = events()
     const next = this.queue.shift()
-    if (next) {
-      this.dir = next
-      turned = true
-    }
-
+    if (next) { this.dir = next; out.turned = true }
     const v = DIR_VEC[this.dir]
-    const head = this.snake[0]
-    const nx = head.x + v.x
-    const ny = head.y + v.y
-
-    // Walls kill. Google Snake has no wrap-around.
-    if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) {
+    const head = { x: this.snake[0].x + v.x, y: this.snake[0].y + v.y }
+    const eats = !!this.apple && head.x === this.apple.x && head.y === this.apple.y
+    // The tail vacates on THIS move unless THIS move eats. The old growing flag
+    // described the previous move and incorrectly turned a legal tail chase into death.
+    const occupied = eats ? this.snake : this.snake.slice(0, -1)
+    if (head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS ||
+      occupied.some(c => c.x === head.x && c.y === head.y)) {
       this.status = 'dead'
-      return { ate: false, died: true, turned }
+      out.died = true
+      return out
     }
-
-    // Self-collision. The TAIL TIP is excluded because it vacates this very step — a
-    // snake chasing its own tail at distance 0 is legal, and forbidding it is a bug
-    // players notice immediately.
-    const limit = this.growing ? this.snake.length : this.snake.length - 1
-    for (let i = 0; i < limit; i++) {
-      if (this.snake[i].x === nx && this.snake[i].y === ny) {
-        this.status = 'dead'
-        return { ate: false, died: true, turned }
-      }
-    }
-
-    this.snake.unshift({ x: nx, y: ny })
-    const ate = nx === this.apple.x && ny === this.apple.y
-    if (ate) {
+    this.previous = copy(this.snake)
+    this.snake.unshift(head)
+    if (eats) {
       this.score++
-      if (this.score > this.best) this.best = this.score
+      this.records[this.pace] = Math.max(this.records[this.pace], this.score)
       this.spawnApple()
-    } else {
-      this.snake.pop()
-    }
-    this.growing = ate
-    return { ate, died: false, turned }
+      out.ate = true
+      if (!this.apple) { this.status = 'won'; out.won = true }
+    } else this.snake.pop()
+    this.growing = eats
+    return out
   }
 
-  /**
-   * Place an apple on a free cell.
-   *
-   * Builds the list of free cells and picks uniformly, rather than rejection-sampling a
-   * random cell until it misses the snake. Rejection sampling is fine early and degrades
-   * to an unbounded loop as the snake fills the board — precisely at the moment the
-   * player has earned a smooth endgame.
-   */
   private spawnApple(): void {
-    const occupied = new Set(this.snake.map(c => `${c.x},${c.y}`))
+    const occupied = new Set(this.snake.map(c => c.y * COLS + c.x))
     const free: Cell[] = []
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        if (!occupied.has(`${x},${y}`)) free.push({ x, y })
-      }
-    }
-    if (!free.length) return // board full — a perfect game
-    this.apple = free[Math.floor(Math.random() * free.length)]
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+      if (!occupied.has(y * COLS + x)) free.push({ x, y })
+    // A full board is a win, not an impossible apple left underneath the snake.
+    this.apple = free.length ? free[Math.min(free.length - 1, Math.floor(this.random() * free.length))] : null
   }
 
   getSnapshot(): SnakeSnapshot {
-    return {
-      status: this.status,
-      snake: this.snake.map(c => ({ ...c })),
-      apple: { ...this.apple },
-      dir: this.dir,
-      score: this.score,
-      best: this.best,
-      // While waiting to start or dead, freeze mid-cell so nothing drifts.
-      t: this.status === 'playing' ? this.acc / STEP_MS : 0,
-      growing: this.growing,
-    }
+    return { status: this.status, snake: copy(this.snake), previousSnake: copy(this.previous),
+      apple: this.apple ? { ...this.apple } : null, dir: this.dir, score: this.score,
+      best: this.records[this.pace], pace: this.pace, stepMs: PACES[this.pace].stepMs,
+      t: this.status === 'ready' || this.status === 'dead' || this.status === 'won'
+        ? 1 : Math.min(1, this.acc / PACES[this.pace].stepMs),
+      growing: this.growing, runId: this.runId }
   }
-
-  private emit(): void {
-    this.onChange(this.getSnapshot())
-  }
+  private emit(): void { this.onChange(this.getSnapshot()) }
 }
