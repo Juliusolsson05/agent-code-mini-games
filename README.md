@@ -2,7 +2,7 @@
 
 A three-game arcade inside [Agent Code](https://github.com/Juliusolsson05/agent-code). Everything runs locally in the extension sandbox: procedural artwork, synthesized audio, and saved progress, with no network requests or external assets during play.
 
-- **Snake:** an illustrated garden, smooth movement, two buffered turns, three paces, separate records, and full-board victory. Arrow keys / WASD, swipe, or direction buttons steer; Space / Escape pause; Enter starts or replays; M toggles sound. Leaving the game’s focus pauses it until you explicitly resume.
+- **Snake:** an illustrated garden, smooth movement, two buffered turns, three paces, separate records, and full-board victory. Arrow keys / WASD, swipe, or direction buttons steer; Space / Escape pause; Enter starts or replays; M toggles sound. Leaving the game’s focus or tabbing to its controls pauses it until you explicitly resume.
 - **Blackjack:** a procedural 3D table with timed dealing, hit, stand, double, up to four split hands, insurance, and repeat wager. Natural blackjack pays 3:2; split 21 pays a regular win. Payouts use cent precision. Choose 1–8 decks and S17/H17 before dealing. H / S / D / P play; Enter deals or rebets; Y / N answer insurance. Bankroll, stats, settings, and sound preference persist. All chips are free practice currency.
 - **Minesweeper:** classic beveled tiles at Beginner, Intermediate, and Expert sizes, a safe first opening, records, and visible win/loss boards. Click to reveal, right-click to mark, or use touch flag mode. Click a revealed number, middle-click, or hold both buttons to chord. Arrow keys navigate; Enter / Space reveal or chord; F marks; N resets. Incorrect flags can still detonate a mine.
 

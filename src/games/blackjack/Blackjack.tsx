@@ -82,7 +82,7 @@ export function Blackjack({ api, audio, onExit }: { api: AgentCodeApiV1; audio: 
   const settingsRef = useRef<HTMLDivElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   const sceneRef = useRef<BlackjackScene | null>(null)
-  const ownedFocus = useRef(false)
+  const lastFocusedElement = useRef<HTMLElement | null>(null)
   const muteChanged = useRef(false)
   const muteSave = useRef<Promise<unknown>>(Promise.resolve())
   const settingsId = useId()
@@ -146,11 +146,20 @@ export function Blackjack({ api, audio, onExit }: { api: AgentCodeApiV1; audio: 
 
   useEffect(() => {
     const root = rootRef.current
-    // Phase changes replace buttons. Restore a lost focus only if the player was
-    // already here; a gallery can mount several games, and none should steal keys
-    // from a neighbouring game or an editable host control.
-    if (root && document.activeElement === document.body && (ownedFocus.current || !state)) root.focus({ preventScroll: true })
-  }, [state?.phase, state?.activeHand])
+    const previous = lastFocusedElement.current
+    // Chromium drops focus to body when a clicked control disables itself. This
+    // also happens WITHOUT changing phase/hand: an all-in chip or a split drawing
+    // a non-pair used to silently disconnect the table's keyboard shortcuts.
+    // Check every snapshot, but only recover an invalidated control's focus. A
+    // deliberate blur of a still-enabled control must not pull the player back
+    // from the gallery or host, and shortcuts must stay local to this table.
+    const controlInvalidated = previous && (!previous.isConnected || previous.matches(':disabled'))
+    // The browser can defer the disabled-control blur until after React's effect.
+    // Recover both sides of that boundary: still on the invalid control, or body.
+    const active = document.activeElement
+    if (root && ((controlInvalidated && (active === previous || active === document.body)) ||
+      (!state && active === document.body))) root.focus({ preventScroll: true })
+  }, [state])
 
   useEffect(() => {
     if (showSettings) settingsRef.current?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus()
@@ -207,8 +216,8 @@ export function Blackjack({ api, audio, onExit }: { api: AgentCodeApiV1; audio: 
 
   return <div className="bj-root" ref={rootRef} tabIndex={0} role="region" aria-label="Blackjack game"
     onKeyDown={onKeyDown}
-    onFocusCapture={() => { ownedFocus.current = true }}
-    onBlurCapture={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) ownedFocus.current = false }}
+    onFocusCapture={event => { lastFocusedElement.current = event.target as HTMLElement }}
+    onBlurCapture={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) lastFocusedElement.current = null }}
     onPointerDown={event => {
       const target = event.target as HTMLElement
       if (!target.closest('button, a, input, select, textarea')) event.currentTarget.focus({ preventScroll: true })

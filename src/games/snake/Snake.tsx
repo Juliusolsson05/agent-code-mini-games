@@ -187,7 +187,13 @@ export function Snake({ api, onExit }: { api: AgentCodeApiV1; onExit: () => void
       // Listening on the focused game root, rather than window, lets several games
       // coexist in the gallery. Native buttons keep Enter/Space, and text inputs or
       // host shortcuts never steer a hidden snake behind the player's active view.
-      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || consumesKeys(event.target)) return
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return
+      // Tab hands the keyboard to navigation controls, whose native keys must stay
+      // intact. Pause BEFORE that transfer so the player cannot lose a live run
+      // while steering is unavailable. Do not cancel Tab or pause pointer actions:
+      // clicking Pause or the direction pad must still perform exactly one action.
+      if (event.key === 'Tab') { game.pause(); syncHud(); return }
+      if (consumesKeys(event.target)) return
       const key = event.key.toLowerCase()
       const direction = KEY_DIR[key]
       if (direction) { event.preventDefault(); turn(direction); return }

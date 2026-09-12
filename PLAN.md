@@ -23,7 +23,7 @@ The parent owns shared integration, Snake engine/types, Blackjack engine/types, 
 2. Add behavioral regression tests for game rules/input/state transitions, using Node’s test runner plus existing build tooling instead of a heavyweight test framework.
 3. Run tests and typecheck. Build production output, then exercise all games in the browser and inspect screenshots at default and alternate sizes/states.
 4. Check local theme changes, keyboard operation, focus-loss pause, replay, split/insurance/dealing, and Minesweeper victory/loss.
-5. Commit the final dist/index.js, review diff and checks, open a complete PR linked to Issues. Do not merge.
+5. Commit the final dist/index.js, review diff and checks, open a complete PR linked to Issues. Merge only after explicit user authorization and a clear review.
 
 ## Progress
 
@@ -42,3 +42,10 @@ The parent owns shared integration, Snake engine/types, Blackjack engine/types, 
 - Removed obsolete game CSS after moving the remaining classic tile rules beside Minesweeper. Theme ink and backgrounds now switch together, avoiding transient unreadable controls during a host theme change.
 - All 22 deterministic tests pass. Browser checks cover pickup, pause, focus isolation, replay, record persistence, swipe, atomic dealing, bankruptcy, settings, four split hands, both chord orders, touch flags, victory/loss and production entry-point navigation. Production build and typecheck pass. Axe audits found no violations across the four gallery themes after final contrast fixes.
 - Added CI and an isolated browser-check server that leaves the user's live preview/storage alone. Version 0.7.0 includes the rebuilt committed bundle. Browser QA covers Chromium, not the Electron extension bridge; actual host installation remains a review step.
+
+## Claude review follow-up
+
+- The user authorized one orchestrated Claude review and merge after a clear result. That reviewer found a Blackjack focus blocker: a chip or Split button could disable itself without changing phase, dropping keyboard input. Track the last focused control and recover only when it is disabled or removed; external focus remains untouched. Browser checks now use Enter after an all-in click and H after Split without manually focusing the root.
+- Addressed the optional Snake keyboard finding too: Tab pauses a live run while preserving native focus navigation and pointer controls. Its new browser regression failed on the old implementation before the fix.
+- Deferred the optional automatic committed-bundle parity gate: the existing repository intentionally ignores the dependency lockfile, so fresh installations can produce different dependency bytes. Adding reproducible dependency pinning is a separate build-policy change. The reviewer verified the current production artifact byte for byte; source changes in this follow-up are rebuilt before delivery.
+- Follow-up verification: all 22 rules tests and the complete browser suite pass, including both focus regressions and external-input focus isolation. The production bundle has been rebuilt and TypeScript passes.

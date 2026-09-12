@@ -52,6 +52,12 @@ try {
   assert.equal(await text('.sk-score strong'),score)
   await shot('snake-paused')
   await button('Resume game').click()
+  // Tab must remain normal keyboard navigation, but a live snake cannot keep
+  // moving while its focused control stops accepting steering keys.
+  await page.keyboard.press('Tab')
+  await button('Resume game').waitFor()
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()),'Arcade')
+  await button('Resume game').click()
   // Moving focus into another control pauses play, so host text entry stays safe.
   await page.evaluate(() => {
     const input=document.createElement('input'); input.id='host-input';document.body.append(input);input.focus()
@@ -107,8 +113,9 @@ try {
   },ranks)
   await cards(['10','10','6','9'])
   await button('Add $500 to wager').click()
-  await button(/^Deal /).click()
-  await page.locator('.bj-root').focus()
+  // Chromium drops focus when a clicked button disables itself. The real UI
+  // must restore keyboard ownership; manually focusing the root hid this bug.
+  await page.keyboard.press('Enter')
   await page.keyboard.press('h')
   assert.match(await text('.bj-status'),/Dealing/)
   await finishOpening()
@@ -125,7 +132,7 @@ try {
   await button('1 deck').click()
   await page.keyboard.press('Escape')
   assert.match(await text('.bj-table-rules'),/1 deck · Dealer hits soft 17/)
-  await cards(['8','6','8','10','8','8','2','3','4','5','10'])
+  await cards(['8','6','8','10','8','8','2','3','4','5','10','10'])
   await button('Add $25 to wager').click()
   await button(/^Deal /).click()
   await finishOpening()
@@ -134,14 +141,22 @@ try {
   assert.equal(await page.locator('.bj-hand').count(),4)
   assert.equal(await button(/^Split /).isDisabled(),true)
   await shot('blackjack-four-hands')
+  await page.keyboard.press('h')
+  assert.equal(await page.locator('.bj-hand').first().locator('.bj-card-readout > span').count(),3)
+  // Drawing 3 keeps hand 1 playable (8 + 2 + 3). Stand advances to the three
+  // remaining split hands, each receiving its own second card as before.
   for(let i=0;i<4;i++) await button(/^Stand /).click()
+  await page.evaluate(() => {
+    const input=document.createElement('input');input.id='blackjack-host-input';document.body.append(input);input.focus()
+  })
   await page.clock.fastForward(520)
   await page.clock.fastForward(520)
   await button(/^Rebet /).waitFor()
+  assert.equal(await page.evaluate(() => document.activeElement?.id),'blackjack-host-input')
   await shot('blackjack-result')
   await button(/^Rebet /).click()
   assert.match(await text('.bj-status'),/Dealing/)
-  console.log('PASS Blackjack: atomic deal, bankruptcy buy-in, settings, four split hands, rebet')
+  console.log('PASS Blackjack: atomic deal, click-to-keyboard focus, host focus isolation, bankruptcy buy-in, settings, four split hands, rebet')
 
   await open('minesweeper')
   await page.clock.resume()
