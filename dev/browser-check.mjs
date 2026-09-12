@@ -14,11 +14,16 @@ const browser = await chromium.launch({headless:true,executablePath:process.env.
 const context = await browser.newContext({viewport:{width:1400,height:1000},hasTouch:true})
 const page = await context.newPage()
 page.setDefaultTimeout(15000)
+page.setDefaultNavigationTimeout(60000) // Cold Vite dependency preparation is separate from game responsiveness.
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 await mkdir('test-results',{recursive:true})
 const button = name => page.getByRole('button',{name})
-const shot = name => page.locator('.mg-root').screenshot({path:`test-results/${name}.png`})
+let controlledClock = false
+const shot = async name => {
+  if (controlledClock) await page.clock.fastForward(650)
+  await page.locator('.mg-root').screenshot({path:`test-results/${name}.png`,animations:'disabled',timeout:60000})
+}
 const open = async game => {
   await page.goto(`${base}dev/?game=${game}`)
   await page.locator('.mg-root').waitFor()
@@ -75,10 +80,22 @@ try {
   await button('Resume game').waitFor()
   console.log('PASS Snake: pickup, pause, focus isolation, replay, records, pace, swipe')
 
+  // Real-time input remains covered by Snake above. For the 3D table, advance the
+  // real game's timers/RAF explicitly. Continuous shadow rendering on a software
+  // GPU otherwise consumes the CI runner between protocol calls and makes both
+  // input assertions and screenshot stability depend on rendering throughput.
+  await page.clock.install({time:0})
+  page.setDefaultTimeout(30000)
   await open('blackjack')
   await button('Add $25 to wager').waitFor()
-  // Control only the shuffled cards, leaving the real timers, rules, state, renderer,
-  // and controls intact. Deterministic losses and splits make regressions reproducible.
+  await page.clock.pauseAt(3600000)
+  controlledClock = true
+  const finishOpening = async () => {
+    await page.clock.fastForward(780)
+    await page.clock.fastForward(420)
+  }
+  // Control the shuffled cards, leaving the actual rules, state, renderer, controls,
+  // and scheduled callbacks intact. Losses and splits must be reproducible.
   const cards = async ranks => page.evaluate(async ranks => {
     const {BlackjackGame}=await import('/src/games/blackjack/engine.ts')
     const original=BlackjackGame.prototype.pop
@@ -87,23 +104,16 @@ try {
   },ranks)
   await cards(['10','10','6','9'])
   await button('Add $500 to wager').click()
-  // CI uses software WebGL: a browser round trip can outlast the entire opening
-  // deal. Keep the input and observation in one event-loop turn, with microtasks
-  // only to flush React's discrete updates. Timed rules remain covered separately.
-  const dealing = await button(/^Deal /).evaluate(async deal => {
-    deal.click()
-    await Promise.resolve()
-    const root=document.querySelector('.bj-root')
-    root.focus()
-    root.dispatchEvent(new KeyboardEvent('keydown',{key:'h',bubbles:true,cancelable:true}))
-    await Promise.resolve()
-    return document.querySelector('.bj-status').textContent
-  })
-  assert.match(dealing,/Dealing/)
+  await button(/^Deal /).click()
+  await page.locator('.bj-root').focus()
+  await page.keyboard.press('h')
+  assert.match(await text('.bj-status'),/Dealing/)
+  await finishOpening()
   await button(/^Stand /).waitFor()
   assert.equal(await page.locator('.bj-hand .bj-card-readout > span').count(),2)
   await shot('blackjack-dealt')
   await page.keyboard.press('s')
+  await page.clock.fastForward(520)
   await button('Buy in $500').waitFor()
   await button('Buy in $500').click()
   assert.equal(await text('.bj-bankroll strong'),'$500')
@@ -115,24 +125,24 @@ try {
   await cards(['8','6','8','10','8','8','2','3','4','5','10'])
   await button('Add $25 to wager').click()
   await button(/^Deal /).click()
+  await finishOpening()
   await button(/^Split /).waitFor()
   for(let i=0;i<3;i++) await button(/^Split /).click()
   assert.equal(await page.locator('.bj-hand').count(),4)
   assert.equal(await button(/^Split /).isDisabled(),true)
-  await page.waitForTimeout(650) // Let the last split card reach the felt for visual review.
   await shot('blackjack-four-hands')
   for(let i=0;i<4;i++) await button(/^Stand /).click()
+  await page.clock.fastForward(520)
+  await page.clock.fastForward(520)
   await button(/^Rebet /).waitFor()
   await shot('blackjack-result')
-  const rebetStatus = await button(/^Rebet /).evaluate(async rebet => {
-    rebet.click()
-    await Promise.resolve()
-    return document.querySelector('.bj-status').textContent
-  })
-  assert.match(rebetStatus,/Dealing/)
+  await button(/^Rebet /).click()
+  assert.match(await text('.bj-status'),/Dealing/)
   console.log('PASS Blackjack: atomic deal, bankruptcy buy-in, settings, four split hands, rebet')
 
   await open('minesweeper')
+  await page.clock.resume()
+  controlledClock = false
   await page.locator('.mine-root').waitFor()
   for(const [name,count] of [['Beginner',81],['Intermediate',256],['Expert',480]]) {
     await button(new RegExp(`^${name}`)).click()
@@ -194,6 +204,8 @@ try {
   console.log('PASS Minesweeper: sizes, keyboard, touch flags, both chord orders, win/loss, frozen clock')
 
   // Smoke the exact production artifact, independently of all card/RNG fixtures.
+  await page.clock.pauseAt(await page.evaluate(()=>Date.now()+60000))
+  controlledClock = true
   await page.goto(`${base}dev/?build=production&game=launcher`)
   for(const [name,selector] of [['Snake','.sk-root'],['Blackjack','.bj-root'],['Minesweeper','.mine-root']]) {
     await button(`Play ${name}`).click()
