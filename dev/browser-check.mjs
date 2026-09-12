@@ -84,6 +84,9 @@ try {
   // real game's timers/RAF explicitly. Continuous shadow rendering on a software
   // GPU otherwise consumes the CI runner between protocol calls and makes both
   // input assertions and screenshot stability depend on rendering throughput.
+  // The supported reduced-motion path places cards at their final pose; a single
+  // RAF jump cannot finish normal animations because the renderer clamps long deltas.
+  await page.emulateMedia({reducedMotion:'reduce'})
   await page.clock.install({time:0})
   page.setDefaultTimeout(30000)
   await open('blackjack')
