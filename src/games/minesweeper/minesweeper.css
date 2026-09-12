@@ -1,0 +1,257 @@
+/* Physical tiles retain their classic raised/flat geometry. These base rules
+ * live with the game so changes to arcade chrome cannot change board dimensions. */
+.ms-led { display: flex; }
+.ms-cell {
+  width: var(--ms-cell);
+  height: var(--ms-cell);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  margin: 0;
+  background: var(--ms-face);
+  font-size: calc(var(--ms-cell) * 0.62);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+/* Unrevealed: raised. */
+.ms-hidden {
+  cursor: pointer;
+  border-top: 3px solid var(--ms-light);
+  border-left: 3px solid var(--ms-light);
+  border-right: 3px solid var(--ms-shadow);
+  border-bottom: 3px solid var(--ms-shadow);
+}
+/* Revealed: flat, with only a hairline grid line on the top/left. This single-line
+   treatment (rather than a full box) is what makes an opened region read as one
+   continuous depressed area instead of a lattice of separate tiles. */
+/* box-sizing is border-box globally (.mg-root *), so `width: var(--ms-cell)` is the
+ * OUTER size with borders included, and every tile — raised or opened — occupies exactly
+ * one grid column. Sizing them larger to "make room for the border" pushes tiles out of
+ * their column and breaks the flush packing a minefield depends on. */
+.ms-open {
+  border: none;
+  border-top: 1px solid var(--ms-shadow);
+  border-left: 1px solid var(--ms-shadow);
+}
+/* The mine you actually detonated — the only red cell on the board. */
+.ms-boom {
+  background: #ff0000;
+}
+.ms-num {
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-weight: 800;
+}
+.ms-question {
+  color: #000000;
+  font-weight: 800;
+}
+.ms-wrong {
+  position: relative;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+/* The strike-through on a flag that wasn't a mine. */
+.ms-x::before,
+.ms-x::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 50%;
+  height: 2px;
+  background: #ff0000;
+}
+.ms-x::before {
+  transform: rotate(45deg);
+}
+.ms-x::after {
+  transform: rotate(-45deg);
+}
+
+/* The chrome belongs to the arcade; the field belongs to Minesweeper. Keeping that
+ * boundary explicit preserves the number colors and physical tile language players
+ * already read fluently, without making the entire game impersonate an old desktop. */
+.mine-root {
+  --mine-accent: #badcc4;
+  --mine-accent-ink: #173e29;
+  --mine-line: var(--border, rgba(255, 255, 255, .1));
+  --ms-face: #c0c0c0;
+  --ms-light: #ffffff;
+  --ms-shadow: #808080;
+  width: max-content;
+  color: var(--ink, #e9edf2);
+  font-family: var(--theme-app-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+}
+.mine-root *, .mine-root *::before, .mine-root *::after { box-sizing: border-box; }
+.mine-root > :not(style) { width: var(--mine-shell-width); }
+.mine-root button { font: inherit; -webkit-tap-highlight-color: transparent; }
+.mine-root button:focus-visible, .mine-help summary:focus-visible {
+  outline: 2px solid var(--focus, #badcc4);
+  outline-offset: 3px;
+}
+.mine-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mine-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 2px 0;
+  background: none;
+  color: var(--muted, #a2abb6);
+  cursor: pointer;
+  font-size: 12px !important;
+}
+.mine-back:hover { color: var(--ink, #e9edf2); }
+.mine-back > span { font-size: 18px; line-height: 14px; }
+.mine-edition { color: var(--muted, #a2abb6); font: 9px/1.4 var(--code, monospace); letter-spacing: 1.25px; }
+.mine-edition > span { opacity: .45; margin: 0 5px; }
+.mine-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+.mine-heading h1 { margin: 0; font-size: 29px; line-height: 1.05; letter-spacing: -1.1px; font-weight: 700; }
+.mine-heading h1 > span { color: var(--mine-accent); }
+.mine-heading p { margin: 7px 0 0; color: var(--muted, #a2abb6); font-size: 11px; line-height: 1.4; }
+.mine-record { flex-shrink: 0; text-align: right; padding-left: 14px; border-left: 1px solid var(--mine-line); }
+.mine-record > span { display: block; color: var(--muted, #a2abb6); font-size: 8px; letter-spacing: 1.2px; font-weight: 600; }
+.mine-record > strong { display: block; margin-top: 5px; color: var(--ink, #e9edf2); font: 500 24px/1 var(--code, monospace); font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.mine-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin-bottom: 10px; background: var(--s1, #171b21); border: 1px solid var(--mine-line); border-radius: 10px; }
+.mine-levels > button {
+  display: grid;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 5px;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted, #a2abb6);
+  background: transparent;
+  cursor: pointer;
+  /* Theme text and surfaces change atomically, including while this board is offscreen. */
+}
+.mine-levels > button strong { font-size: 11px; font-weight: 650; }
+.mine-levels > button > span { font: 9px/1 var(--code, monospace); white-space: nowrap; }
+.mine-levels > button:hover { background: var(--s2, #252c35); color: var(--ink, #e9edf2); }
+.mine-levels > button.is-selected { color: var(--mine-accent-ink); background: var(--mine-accent); border-color: rgba(255, 255, 255, .18); box-shadow: 0 1px 3px #0002; }
+.mine-levels > button.is-selected > span { opacity: .77; }
+.mine-root .mine-cabinet {
+  width: max-content;
+  padding: 10px;
+  border: 1px solid var(--border-hi, #39424a);
+  border-radius: 12px;
+  background: var(--s1, #191e23);
+  box-shadow: 0 8px 24px #0002, inset 0 1px 0 #ffffff06;
+}
+.mine-instruments { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 15px; margin: 0 1px 6px; }
+.mine-counter { display: grid; justify-items: start; gap: 6px; }
+.mine-counter > span { color: var(--muted, #a2abb6); font: 9px/1 var(--code, monospace); letter-spacing: 1.2px; }
+.mine-counter-time { justify-items: end; }
+.mine-root .ms-led { gap: 2px; padding: 3px 4px; border: 1px solid #ffffff15; border-radius: 3px; background: #100706; box-shadow: inset 0 1px 3px #0008; }
+.mine-root .mine-reset {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  margin-top: 8px;
+  padding: 0;
+  border: 3px solid;
+  border-color: var(--ms-light) var(--ms-shadow) var(--ms-shadow) var(--ms-light);
+  border-radius: 2px;
+  background: var(--ms-face);
+  box-shadow: 0 0 0 1px #0007, 0 3px 7px #0003;
+  cursor: pointer;
+}
+.mine-reset > svg { width: 25px; height: 25px; }
+.mine-root .mine-reset:active { border-color: var(--ms-shadow) var(--ms-light) var(--ms-light) var(--ms-shadow); padding: 1px 0 0 1px; box-shadow: 0 0 0 1px #0007; }
+
+/* Each row is a real ARIA row, rather than display:contents, whose accessibility
+ * behavior has varied between browsers. The invariant is still one exact border-box
+ * cell per column: borders never add width or reveal seams in the flat zero regions. */
+.mine-root .mine-field {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  border: 3px solid;
+  border-color: var(--ms-shadow) var(--ms-light) var(--ms-light) var(--ms-shadow);
+  background: var(--ms-face);
+  touch-action: none;
+}
+.mine-row { display: flex; width: max-content; }
+.mine-root .ms-cell {
+  position: relative;
+  flex: 0 0 var(--ms-cell);
+  width: var(--ms-cell);
+  height: var(--ms-cell);
+  min-width: 0;
+  border-radius: 0;
+  color: #111111;
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: calc(var(--ms-cell) * .6);
+  font-weight: 800;
+  line-height: 1;
+  overflow: visible;
+  touch-action: none;
+}
+.mine-root .ms-hidden { background: var(--ms-face); cursor: pointer; }
+.mine-root .ms-open { background: var(--ms-face); cursor: default; }
+.mine-root .ms-open:has(.ms-num) { cursor: pointer; }
+.mine-root .ms-cell[aria-disabled="true"] { cursor: default; }
+.mine-root .mine-pressed { border: 1px solid var(--ms-shadow); background: #b2b2b2; }
+.mine-root .ms-boom { background: #ff3434; }
+.mine-root .mine-wrong { background: #d4c0bb; }
+.mine-cell-art { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.mine-root .ms-num { font-family: 'Courier New', ui-monospace, monospace; font-weight: 900; }
+.mine-root .ms-question { font-family: 'Courier New', ui-monospace, monospace; }
+.mine-root .ms-cell:focus-visible {
+  outline: 3px solid #0750c7;
+  outline-offset: -4px;
+  z-index: 1;
+  /* The white inset keeps the ring visible over both dark mines and red detonations. */
+  box-shadow: inset 0 0 0 5px #ffffffc9;
+}
+@media (hover: hover) {
+  .mine-root .ms-hidden:not([aria-disabled="true"]):not(.mine-pressed):hover { background: #d6d6d6; }
+  .mine-root .ms-open:not([aria-disabled="true"]):has(.ms-num):hover { background: #d1d1d1; }
+}
+.mine-progress-label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; font: 9px/1 var(--code, monospace); color: var(--muted, #a2abb6); letter-spacing: .7px; }
+.mine-progress-label > span { display: flex; align-items: center; gap: 10px; }
+.mine-progress-label b { color: var(--ink, #e9edf2); font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.mine-progress-label b > span { color: var(--muted, #a2abb6); }
+.mine-progress-label > strong { color: var(--ink, #e9edf2); font-weight: 500; letter-spacing: 0; }
+.mine-progress { height: 3px; border-radius: 3px; overflow: hidden; margin-top: 6px; background: var(--s2, #2a3138); }
+.mine-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--mine-accent); transition: width 180ms ease; }
+.mine-root[data-status="lost"] .mine-progress > span { background: #e5ac94; }
+.mine-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 8px 0; }
+.mine-status-copy { min-width: 0; }
+.mine-status-copy > strong { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; line-height: 1.4; }
+.mine-status-dot { flex-shrink: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--mine-accent); }
+.mine-root[data-status="lost"] .mine-status-dot { background: #e5ac94; }
+.mine-status-copy p { margin: 4px 0 0 12px; color: var(--muted, #a2abb6); font-size: 10px; line-height: 1.5; }
+.mine-replay { flex-shrink: 0; display: inline-flex; align-items: center; gap: 10px; border: 0; border-radius: 7px; padding: 10px 11px; background: var(--mine-accent); color: var(--mine-accent-ink); font-size: 11px !important; font-weight: 700 !important; cursor: pointer; }
+.mine-replay:hover { filter: brightness(1.07); }
+.mine-replay:active { transform: translateY(1px); }
+.mine-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--mine-line); }
+.mine-flag-mode { display: flex; align-items: center; gap: 7px; min-height: 34px; border: 1px solid var(--mine-line); border-radius: 7px; background: var(--s1, #191e23); color: var(--muted, #a2abb6); padding: 5px 9px; font-size: 10px !important; cursor: pointer; white-space: nowrap; }
+.mine-flag-mode > span:first-child { font-size: 16px; line-height: 1; }
+.mine-flag-mode.is-active { color: var(--mine-accent-ink); background: var(--mine-accent); border-color: var(--mine-accent); }
+.mine-toggle { display: block; width: 23px; height: 13px; padding: 3px; border-radius: 7px; background: var(--border-hi, #46515b); }
+.mine-toggle::after { content: ''; display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted, #a2abb6); transition: transform 120ms ease; }
+.mine-flag-mode.is-active .mine-toggle { background: #173e2933; }
+.mine-flag-mode.is-active .mine-toggle::after { background: var(--mine-accent-ink); transform: translateX(10px); }
+.mine-input-hint { font-size: 9px; color: var(--muted, #a2abb6); text-align: right; line-height: 1.5; }
+.mine-help { margin-top: 5px; color: var(--muted, #a2abb6); }
+.mine-help summary { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 3px 0; font-size: 10px; list-style: none; cursor: pointer; }
+.mine-help summary::-webkit-details-marker { display: none; }
+.mine-help summary > span { font-size: 16px; line-height: 1; transition: transform 120ms ease; }
+.mine-help[open] summary > span { transform: rotate(45deg); }
+.mine-help > div { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--mine-line); border-radius: 8px; background: var(--s1, #191e23); font-size: 11px; line-height: 1.6; }
+.mine-help p { margin: 0 0 10px; }
+.mine-help p:last-child { margin: 0; }
+.mine-help p > strong { color: var(--ink, #e9edf2); }
+/* A progressing bar gives useful feedback; recurring board animation would make a
+ * logic game harder to read. Keep motion local to explicit controls and remove even
+ * those transitions for players who prefer a completely still field. */
+@media (prefers-reduced-motion: reduce) {
+  .mine-root *, .mine-root *::before, .mine-root *::after { transition: none !important; animation: none !important; }
+  .mine-replay:active { transform: none; }
+}

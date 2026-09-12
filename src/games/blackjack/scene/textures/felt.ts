@@ -65,7 +65,7 @@ function paintCloth(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   ctx.putImageData(img, 0, 0)
 }
 
-export function feltTexture(): THREE.CanvasTexture {
+export function feltTexture(hitSoft17 = false): THREE.CanvasTexture {
   // Legend sits just dealer-side of centre; the circle sits exactly on the bet position.
   const legendY = feltCanvasY(-0.9)
   const circle = {
@@ -75,7 +75,7 @@ export function feltTexture(): THREE.CanvasTexture {
     ry: (0.95 / FELT_D) * TEX_H,
   }
 
-  const svg = renderToStaticMarkup(TableLogo({ w: TEX_W, h: TEX_H, legendY, circle }))
+  const svg = renderToStaticMarkup(TableLogo({ w: TEX_W, h: TEX_H, legendY, circle, hitSoft17 }))
   // preserveBase: the cloth is painted first and the vector type composites over it.
   return svgToTexture(svg, TEX_W, TEX_H, { basePaint: paintCloth, preserveBase: true })
 }

@@ -34,6 +34,7 @@ const DEALT: BJState = {
   insuranceBet: 0,
   message: '',
   lastNet: 0,
+  lastBet: 25,
   stats: { hands: 0, wins: 0, losses: 0, pushes: 0, blackjacks: 0 },
   settings: { decks: 6, hitSoft17: false, startingBankroll: 500 },
   shoeRemaining: 170,

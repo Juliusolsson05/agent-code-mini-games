@@ -1,231 +1,312 @@
-import { COLS, DIR_VEC, ROWS, type Cell, type SnakeSnapshot } from '../engine/game'
+import { COLS, ROWS, type Cell, type SnakeSnapshot } from '../engine/game'
 import {
-  APPLE_DARK,
-  APPLE_LEAF,
-  APPLE_LIGHT,
-  APPLE_STEM,
-  BOARD_DARK,
-  BOARD_LIGHT,
-  EYE_WHITE,
-  mixHex,
-  SNAKE_HEAD,
-  SNAKE_INK,
-  SNAKE_TAIL,
+  APPLE_DARK, APPLE_LEAF, APPLE_LIGHT, APPLE_STEM, BOARD_DARK, BOARD_LIGHT,
+  EYE_WHITE, mixHex, SNAKE_HEAD, SNAKE_INK, SNAKE_TAIL,
 } from './palette'
 
-// Canvas renderer replicating Google Snake's look.
-//
-// ── THE ONE IDEA THAT MAKES IT LOOK RIGHT ──
-// The snake is NOT a row of squares. It is a single polyline stroked with
-// `lineCap/lineJoin = 'round'` at ~0.8 of a cell. That one choice gives, for free: the
-// capsule body, perfectly rounded corners when it turns, the smooth tail, and the joins
-// between segments. The old implementation drew per-cell rounded rects, which is why it
-// looked like a chain of tiles and why corners had notches.
-//
-// Smooth motion comes from interpolating only the two ENDS of that polyline: the head
-// advances toward its next cell by `t`, and the tail retracts by the same `t`. Every
-// interior point stays on its exact grid centre, so the body never wobbles.
-
-type Pt = { x: number; y: number }
+type Point = { x: number; y: number }
+type Crumb = { x: number; y: number; vx: number; vy: number; life: number; size: number; colour: string }
+const TAU = Math.PI * 2
+const lerp = (a: Point, b: Point, t: number): Point => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
 
 export class SnakeRenderer {
   private ctx: CanvasRenderingContext2D
+  private board: HTMLCanvasElement
+  private width = 0
+  private height = 0
   private cell = 0
   private originX = 0
   private originY = 0
   private dpr = 1
+  private reducedMotion = false
+  private runId = -1
+  private lastScore = 0
+  private lastApple: Cell | null = null
+  private crumbs: Crumb[] = []
+  private lastTime = 0
+  private clock = 0
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!
+    this.board = document.createElement('canvas')
     this.resize()
+  }
+
+  setReducedMotion(value: boolean): void {
+    this.reducedMotion = value
+    if (value) this.crumbs = []
   }
 
   resize(): void {
     const rect = this.canvas.getBoundingClientRect()
+    this.width = rect.width
+    this.height = rect.height
     this.dpr = Math.min(2, window.devicePixelRatio || 1)
-    this.canvas.width = Math.max(1, Math.round(rect.width * this.dpr))
-    this.canvas.height = Math.max(1, Math.round(rect.height * this.dpr))
+    this.canvas.width = Math.max(1, Math.round(this.width * this.dpr))
+    this.canvas.height = Math.max(1, Math.round(this.height * this.dpr))
+    this.cell = Math.min(this.width / COLS, this.height / ROWS)
+    this.originX = (this.width - this.cell * COLS) / 2
+    this.originY = (this.height - this.cell * ROWS) / 2
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
-
-    // Integer cell size, board centred. A fractional cell makes the checkerboard seams
-    // shimmer as the snake moves across them.
-    this.cell = Math.floor(Math.min(rect.width / COLS, rect.height / ROWS))
-    this.originX = Math.round((rect.width - this.cell * COLS) / 2)
-    this.originY = Math.round((rect.height - this.cell * ROWS) / 2)
+    this.paintBoard()
   }
 
-  /** Grid cell → pixel centre. */
-  private px(c: Cell): Pt {
-    return {
-      x: this.originX + (c.x + 0.5) * this.cell,
-      y: this.originY + (c.y + 0.5) * this.cell,
-    }
+  private point(c: Cell): Point {
+    return { x: this.originX + (c.x + 0.5) * this.cell, y: this.originY + (c.y + 0.5) * this.cell }
   }
 
-  draw(s: SnakeSnapshot): void {
-    const { ctx } = this
-    const rect = this.canvas.getBoundingClientRect()
-    ctx.clearRect(0, 0, rect.width, rect.height)
-
-    this.drawBoard()
-    this.drawApple(s.apple)
-    this.drawSnake(s)
-  }
-
-  private drawBoard(): void {
-    const { ctx, cell } = this
-    for (let y = 0; y < ROWS; y++) {
-      for (let x = 0; x < COLS; x++) {
-        // Checker parity on (x + y) — the classic mown-lawn pattern.
-        ctx.fillStyle = (x + y) % 2 === 0 ? BOARD_LIGHT : BOARD_DARK
-        ctx.fillRect(this.originX + x * cell, this.originY + y * cell, cell, cell)
+  private paintBoard(): void {
+    // This lawn never changes during a run. Painting it once per resize avoids a
+    // layout read and 255 grass tiles on every animation frame, including while idle.
+    this.board.width = this.canvas.width
+    this.board.height = this.canvas.height
+    const ctx = this.board.getContext('2d')!
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    ctx.fillStyle = BOARD_DARK
+    ctx.fillRect(0, 0, this.width, this.height)
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const left = Math.round((this.originX + x * this.cell) * this.dpr) / this.dpr
+      const top = Math.round((this.originY + y * this.cell) * this.dpr) / this.dpr
+      const right = Math.round((this.originX + (x + 1) * this.cell) * this.dpr) / this.dpr
+      const bottom = Math.round((this.originY + (y + 1) * this.cell) * this.dpr) / this.dpr
+      // Shared rounded pixel boundaries prevent hairline seams without changing the
+      // playable cell size or squeezing the 17 × 15 board into a square canvas.
+      ctx.fillStyle = (x + y) % 2 ? BOARD_DARK : BOARD_LIGHT
+      ctx.fillRect(left, top, right - left, bottom - top)
+      if ((x * 13 + y * 7) % 23 === 4) {
+        const p = this.point({ x, y })
+        ctx.strokeStyle = 'rgba(66, 111, 53, 0.14)'
+        ctx.lineWidth = Math.max(1, this.cell * 0.03)
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(p.x - this.cell * 0.11, p.y + this.cell * 0.16)
+        ctx.lineTo(p.x - this.cell * 0.15, p.y + this.cell * 0.05)
+        ctx.moveTo(p.x - this.cell * 0.11, p.y + this.cell * 0.16)
+        ctx.lineTo(p.x - this.cell * 0.05, p.y + this.cell * 0.07)
+        ctx.stroke()
       }
     }
+    const light = ctx.createLinearGradient(0, 0, this.width, this.height)
+    light.addColorStop(0, 'rgba(255, 251, 196, 0.14)')
+    light.addColorStop(1, 'rgba(58, 98, 48, 0.04)')
+    ctx.fillStyle = light
+    ctx.fillRect(0, 0, this.width, this.height)
   }
 
-  /**
-   * Build the polyline the snake is stroked along, with interpolated ends.
-   *
-   * Only the ends move between steps. If the whole body were interpolated the snake
-   * would appear to stretch and compress as it turned.
-   */
-  private path(s: SnakeSnapshot): Pt[] {
-    const pts: Pt[] = []
-    const body = s.snake
-    if (!body.length) return pts
-
-    // Head: advance toward the cell it is moving into.
-    const v = DIR_VEC[s.dir]
-    const h = this.px(body[0])
-    pts.push({ x: h.x + v.x * this.cell * s.t, y: h.y + v.y * this.cell * s.t })
-
-    for (let i = 0; i < body.length - 1; i++) pts.push(this.px(body[i]))
-
-    // Tail: retract toward the segment ahead of it — unless we just ate, in which case
-    // the tail holds station for one step and the snake visibly grows by a cell.
-    const n = body.length
-    if (n >= 2) {
-      const tail = this.px(body[n - 1])
-      if (s.growing) {
-        pts.push(tail)
-      } else {
-        const prev = this.px(body[n - 2])
-        pts.push({
-          x: tail.x + (prev.x - tail.x) * s.t,
-          y: tail.y + (prev.y - tail.y) * s.t,
-        })
-      }
+  draw(snapshot: SnakeSnapshot, now = performance.now()): void {
+    if (this.cell <= 0) return
+    const dt = this.lastTime ? Math.min(40, Math.max(0, now - this.lastTime)) : 0
+    this.lastTime = now
+    if (snapshot.runId !== this.runId) {
+      this.runId = snapshot.runId
+      this.crumbs = []
+      this.lastScore = snapshot.score
+      this.lastApple = snapshot.apple
+      this.clock = 0
     }
-    return pts
+    const animate = snapshot.status === 'playing' || snapshot.status === 'ready'
+    if (animate) this.clock += dt
+    if (snapshot.score > this.lastScore && !this.reducedMotion)
+      this.scatter(this.lastApple ?? snapshot.snake[0])
+    this.lastScore = snapshot.score
+    this.lastApple = snapshot.apple
+
+    const ctx = this.ctx
+    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.drawImage(this.board, 0, 0, this.width, this.height)
+    this.drawApple(snapshot.apple)
+    this.drawSnake(snapshot)
+    this.drawCrumbs(animate ? dt : 0)
   }
 
-  private drawSnake(s: SnakeSnapshot): void {
-    const { ctx, cell } = this
-    const pts = this.path(s)
-    if (pts.length < 2) return
+  private path(snapshot: SnakeSnapshot): Point[] {
+    const previous = snapshot.previousSnake
+    const current = snapshot.snake
+    if (!previous.length || !current.length) return []
+    const head = lerp(this.point(previous[0]), this.point(current[0]), snapshot.t)
+    // Both ends follow a completed logical move. Predicting head + direction * t
+    // displays a cell the engine has never approved, overshoots walls, and turns the
+    // face early when the player buffers a corner. Interior vertices stay on their
+    // actual route; lerping every body cell cuts diagonally across tight corners.
+    const path = [head, ...previous.slice(0, -1).map(cell => this.point(cell))]
+    const tail = this.point(previous[previous.length - 1])
+    path.push(snapshot.growing ? tail : lerp(tail, this.point(current[current.length - 1]), snapshot.t))
+    return path.filter((point, index) => !index || Math.hypot(point.x - path[index - 1].x, point.y - path[index - 1].y) > 0.01)
+  }
 
-    const width = cell * 0.8
+  private trace(points: Point[]): void {
+    this.ctx.beginPath()
+    points.forEach((point, index) => index ? this.ctx.lineTo(point.x, point.y) : this.ctx.moveTo(point.x, point.y))
+  }
+
+  private drawSnake(snapshot: SnakeSnapshot): void {
+    const points = this.path(snapshot)
+    if (points.length < 2) return
+    const { ctx, cell } = this
+    const width = cell * 0.76
+    ctx.save()
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
+    ctx.shadowColor = 'rgba(33, 70, 59, 0.23)'
+    ctx.shadowBlur = cell * 0.2
+    ctx.shadowOffsetY = cell * 0.13
+    ctx.strokeStyle = SNAKE_TAIL
+    ctx.lineWidth = width
+    this.trace(points)
+    ctx.stroke()
+    ctx.shadowColor = 'transparent'
 
-    // Stroke SEGMENT BY SEGMENT so each can carry its own colour, producing the
-    // head→tail gradient. Round caps make consecutive strokes overlap seamlessly, so
-    // this looks identical to one continuous stroke.
-    for (let i = 0; i < pts.length - 1; i++) {
-      const f = i / Math.max(1, pts.length - 2)
-      ctx.strokeStyle = mixHex(SNAKE_HEAD, SNAKE_TAIL, f)
-      // Taper the last cell and a half so the tail comes to a point rather than a stump.
-      const remaining = pts.length - 1 - i
-      const taper = remaining <= 2 ? 0.55 + 0.225 * remaining : 1
-      ctx.lineWidth = width * taper
-      ctx.beginPath()
-      ctx.moveTo(pts[i].x, pts[i].y)
-      ctx.lineTo(pts[i + 1].x, pts[i + 1].y)
+    // A continuous silhouette carries the shadow. Colour strokes then overlap from
+    // tail to head so joints stay rounded and the creature never reads as blue tiles.
+    for (let i = points.length - 2; i >= 0; i--) {
+      ctx.lineWidth = width
+      ctx.strokeStyle = mixHex(SNAKE_HEAD, SNAKE_TAIL, i / Math.max(1, points.length - 2))
+      this.trace([points[i], points[i + 1]])
       ctx.stroke()
     }
+    ctx.save()
+    ctx.translate(0, -cell * 0.14)
+    ctx.strokeStyle = 'rgba(213, 235, 255, 0.20)'
+    ctx.lineWidth = cell * 0.13
+    this.trace(points)
+    ctx.stroke()
+    ctx.restore()
 
-    this.drawHead(pts[0], s.dir, s.status === 'dead')
+    const oldHead = snapshot.previousSnake[0]
+    const oldNeck = snapshot.previousSnake[1] ?? oldHead
+    const current = snapshot.snake[0]
+    const hasMoved = current.x !== oldHead.x || current.y !== oldHead.y
+    const before = Math.atan2(oldHead.y - oldNeck.y, oldHead.x - oldNeck.x)
+    const after = hasMoved ? Math.atan2(current.y - oldHead.y, current.x - oldHead.x) : before
+    const delta = Math.atan2(Math.sin(after - before), Math.cos(after - before))
+    const fraction = Math.min(1, snapshot.t * 1.8)
+    const angle = before + delta * fraction * fraction * (3 - 2 * fraction)
+    this.drawHead(points[0], angle, snapshot.status)
+    ctx.restore()
   }
 
-  private drawHead(p: Pt, dir: SnakeSnapshot['dir'], dead: boolean): void {
+  private drawHead(point: Point, angle: number, status: SnakeSnapshot['status']): void {
     const { ctx, cell } = this
-    const v = DIR_VEC[dir]
-    // Perpendicular to travel — where the two eyes sit.
-    const perp = { x: -v.y, y: v.x }
-
-    // The little nose bump ahead of the head. Small, but it's what gives the snake a
-    // face direction at a glance even when the eyes are hard to read.
-    ctx.fillStyle = SNAKE_HEAD
+    ctx.save()
+    ctx.translate(point.x, point.y)
+    ctx.rotate(angle)
+    const gradient = ctx.createLinearGradient(-cell * 0.2, -cell * 0.4, cell * 0.35, cell * 0.4)
+    gradient.addColorStop(0, '#71a0ff')
+    gradient.addColorStop(1, SNAKE_HEAD)
+    ctx.fillStyle = gradient
     ctx.beginPath()
-    ctx.arc(p.x + v.x * cell * 0.3, p.y + v.y * cell * 0.3, cell * 0.11, 0, Math.PI * 2)
+    ctx.ellipse(cell * 0.055, 0, cell * 0.45, cell * 0.405, 0, 0, TAU)
     ctx.fill()
-
-    const eyeR = cell * 0.155
-    const pupilR = cell * 0.082
+    const blink = !this.reducedMotion && status === 'ready' && this.clock % 5200 > 5020
     for (const side of [-1, 1]) {
-      const ex = p.x + perp.x * cell * 0.2 + v.x * cell * 0.06
-      const ey = p.y + perp.y * cell * 0.2 + v.y * cell * 0.06
-      const cx = ex * 0 + p.x + perp.x * side * cell * 0.2 + v.x * cell * 0.06
-      const cy = ey * 0 + p.y + perp.y * side * cell * 0.2 + v.y * cell * 0.06
-
+      const x = cell * 0.115
+      const y = cell * 0.235 * side
+      ctx.fillStyle = 'rgba(23, 49, 100, 0.14)'
+      ctx.beginPath()
+      ctx.ellipse(x - cell * 0.01, y + cell * 0.02, cell * 0.18, cell * 0.157, 0, 0, TAU)
+      ctx.fill()
       ctx.fillStyle = EYE_WHITE
       ctx.beginPath()
-      ctx.arc(cx, cy, eyeR, 0, Math.PI * 2)
+      ctx.ellipse(x, y, cell * 0.169, cell * 0.15, 0, 0, TAU)
       ctx.fill()
-
       ctx.fillStyle = SNAKE_INK
-      if (dead) {
-        // X eyes on death — a tiny bit of character at the one moment the player is
-        // staring straight at the head.
-        ctx.lineWidth = cell * 0.055
-        ctx.strokeStyle = SNAKE_INK
+      ctx.strokeStyle = SNAKE_INK
+      ctx.lineWidth = cell * 0.05
+      if (status === 'dead' || blink) {
         ctx.beginPath()
-        ctx.moveTo(cx - pupilR, cy - pupilR)
-        ctx.lineTo(cx + pupilR, cy + pupilR)
-        ctx.moveTo(cx + pupilR, cy - pupilR)
-        ctx.lineTo(cx - pupilR, cy + pupilR)
+        ctx.moveTo(x - cell * 0.06, y)
+        ctx.lineTo(x + cell * 0.065, y)
         ctx.stroke()
       } else {
         ctx.beginPath()
-        // Pupils sit slightly forward, so the snake looks where it's going.
-        ctx.arc(cx + v.x * cell * 0.045, cy + v.y * cell * 0.045, pupilR, 0, Math.PI * 2)
+        ctx.arc(x + cell * 0.05, y, cell * 0.076, 0, TAU)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(x + cell * 0.073, y - cell * 0.025, cell * 0.023, 0, TAU)
         ctx.fill()
       }
     }
+    // Two small nostrils carry direction even when the eyes rotate through a turn.
+    ctx.fillStyle = 'rgba(30, 65, 133, 0.55)'
+    for (const side of [-1, 1]) {
+      ctx.beginPath()
+      ctx.ellipse(cell * 0.36, cell * 0.076 * side, cell * 0.025, cell * 0.018, 0, 0, TAU)
+      ctx.fill()
+    }
+    ctx.restore()
   }
 
-  private drawApple(a: Cell): void {
+  private drawApple(apple: Cell | null): void {
+    if (!apple) return
     const { ctx, cell } = this
-    const p = this.px(a)
-    const r = cell * 0.34
-
-    // Body: a radial gradient lit from the upper left, which is what stops it reading as
-    // a flat red dot.
-    const g = ctx.createRadialGradient(p.x - r * 0.35, p.y - r * 0.4, r * 0.15, p.x, p.y, r * 1.15)
-    g.addColorStop(0, APPLE_LIGHT)
-    g.addColorStop(1, APPLE_DARK)
-    ctx.fillStyle = g
+    const point = this.point(apple)
+    ctx.save()
+    ctx.translate(point.x, point.y)
+    ctx.fillStyle = 'rgba(57, 91, 36, 0.17)'
     ctx.beginPath()
-    ctx.arc(p.x, p.y + r * 0.08, r, 0, Math.PI * 2)
+    ctx.ellipse(0, cell * 0.31, cell * 0.3, cell * 0.10, 0, 0, TAU)
     ctx.fill()
-
-    // Stem.
+    const gradient = ctx.createRadialGradient(-cell * 0.14, -cell * 0.13, 0, cell * 0.04, cell * 0.1, cell * 0.43)
+    gradient.addColorStop(0, APPLE_LIGHT)
+    gradient.addColorStop(1, APPLE_DARK)
+    ctx.fillStyle = gradient
+    ctx.beginPath()
+    ctx.moveTo(0, -cell * 0.23)
+    ctx.bezierCurveTo(-cell * 0.37, -cell * 0.47, -cell * 0.46, cell * 0.18, -cell * 0.2, cell * 0.32)
+    ctx.bezierCurveTo(-cell * 0.1, cell * 0.38, -cell * 0.055, cell * 0.29, 0, cell * 0.32)
+    ctx.bezierCurveTo(cell * 0.23, cell * 0.45, cell * 0.46, cell * 0.07, cell * 0.31, -cell * 0.19)
+    ctx.bezierCurveTo(cell * 0.21, -cell * 0.35, cell * 0.1, -cell * 0.31, 0, -cell * 0.23)
+    ctx.fill()
+    ctx.lineCap = 'round'
     ctx.strokeStyle = APPLE_STEM
     ctx.lineWidth = cell * 0.05
-    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.moveTo(p.x, p.y - r * 0.7)
-    ctx.lineTo(p.x + r * 0.1, p.y - r * 1.05)
+    ctx.moveTo(0, -cell * 0.22)
+    ctx.quadraticCurveTo(-cell * 0.02, -cell * 0.36, cell * 0.045, -cell * 0.43)
     ctx.stroke()
-
-    // Leaf: a rotated ellipse off the stem's right.
     ctx.fillStyle = APPLE_LEAF
-    ctx.save()
-    ctx.translate(p.x + r * 0.34, p.y - r * 1.0)
-    ctx.rotate(-0.5)
     ctx.beginPath()
-    ctx.ellipse(0, 0, r * 0.42, r * 0.22, 0, 0, Math.PI * 2)
+    ctx.ellipse(cell * 0.14, -cell * 0.365, cell * 0.135, cell * 0.065, -0.45, 0, TAU)
     ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 239, 212, 0.75)'
+    ctx.lineWidth = cell * 0.05
+    ctx.beginPath()
+    ctx.moveTo(-cell * 0.2, -cell * 0.115)
+    ctx.quadraticCurveTo(-cell * 0.24, -cell * 0.045, -cell * 0.23, cell * 0.01)
+    ctx.stroke()
     ctx.restore()
+  }
+
+  private scatter(at: Cell): void {
+    // A handful of crumbs marks a pickup without obscuring the next cell or shaking
+    // the player's map. Deterministic spokes also keep this effect easy to inspect.
+    const point = this.point(at)
+    for (let index = 0; index < 7; index++) {
+      const angle = index / 7 * TAU + 0.25
+      this.crumbs.push({ x: point.x, y: point.y,
+        vx: Math.cos(angle) * this.cell * 1.45, vy: Math.sin(angle) * this.cell * 1.45,
+        life: 1, size: this.cell * (index % 2 ? 0.065 : 0.045),
+        colour: index % 3 ? '#fff4c3' : '#ed7656' })
+    }
+    this.crumbs = this.crumbs.slice(-28)
+  }
+
+  private drawCrumbs(dt: number): void {
+    const ctx = this.ctx
+    for (const crumb of this.crumbs) {
+      crumb.life -= dt / 430
+      crumb.x += crumb.vx * dt / 1000
+      crumb.y += crumb.vy * dt / 1000
+      crumb.vy += this.cell * dt / 1000
+      if (crumb.life <= 0) continue
+      ctx.globalAlpha = crumb.life
+      ctx.fillStyle = crumb.colour
+      ctx.beginPath()
+      ctx.arc(crumb.x, crumb.y, crumb.size * (0.5 + crumb.life * 0.5), 0, TAU)
+      ctx.fill()
+    }
+    ctx.globalAlpha = 1
+    this.crumbs = this.crumbs.filter(crumb => crumb.life > 0)
   }
 }

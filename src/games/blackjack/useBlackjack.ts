@@ -14,7 +14,11 @@ export function useBlackjack(
   const gameRef = useRef<BlackjackGame | null>(null)
 
   useEffect(() => {
-    const game = new BlackjackGame(api, setState, {
+    let current = true
+    // Storage resolves over the host bridge and can outlive a route change. The
+    // engine owns its timers; this guard owns the React subscription. An old table
+    // or Strict Mode's discarded mount must never update the current screen.
+    const game = new BlackjackGame(api, next => { if (current) setState(next) }, {
       // IMPACT sounds are owned by the SCENE, not the engine (see Blackjack.tsx).
       // The engine knows when a card is dealt; only the scene knows when it lands. Firing
       // here played the swish while the card was still mid-air AND double-triggered it
@@ -30,12 +34,11 @@ export function useBlackjack(
     gameRef.current = game
     setState(game.getState())
     return () => {
+      current = false
       game.dispose()
-      gameRef.current = null
+      if (gameRef.current === game) gameRef.current = null
     }
-    // api + audio are stable for the component's life.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [api, audio])
 
   return { state, game: gameRef.current }
 }

@@ -5,6 +5,8 @@ import type { Rank, Suit } from '../../assets/svg/suits'
 export type Card = { rank: Rank; suit: Suit; id: string }
 
 export type Phase =
+  | 'loading' // storage must finish before a wager can be placed
+  | 'dealing' // opening four-card deal is atomic
   | 'betting' // choosing a wager
   | 'insurance' // dealer shows an ace; offer insurance
   | 'playing' // player acting on their hand(s)
@@ -43,6 +45,7 @@ export type BJState = {
   insuranceBet: number
   message: string
   lastNet: number
+  lastBet: number
   stats: Stats
   settings: Settings
   shoeRemaining: number
@@ -52,6 +55,7 @@ export const CHIP_STORE_KEYS = {
   bankroll: 'bj.bankroll',
   stats: 'bj.stats',
   settings: 'bj.settings',
+  lastBet: 'bj.lastBet',
 } as const
 
 const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -113,6 +117,12 @@ const DEFAULT_STATS: Stats = { hands: 0, wins: 0, losses: 0, pushes: 0, blackjac
 const DEAL_MS = 260 // pace of the opening deal
 const DEALER_MS = 520 // pace of dealer draws
 
+// Practice chips still need a trustworthy ledger. Whole-chip rounding overpaid a
+// $25 natural and offered free insurance on $1 (Issue #7). Keep cent precision at
+// transaction boundaries; the on-table chip stacks are a visual approximation.
+const cash = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100
+export const insuranceCost = (bet: number): number => cash(bet / 2)
+
 /**
  * The whole game of blackjack — state, rules, and the timed dealer turn — behind a
  * small imperative surface the React hook subscribes to. Kept UI-free so the rules
@@ -120,7 +130,7 @@ const DEALER_MS = 520 // pace of dealer draws
  */
 export class BlackjackGame {
   private shoe: Card[] = []
-  private phase: Phase = 'betting'
+  private phase: Phase = 'loading'
   private bankroll = DEFAULT_SETTINGS.startingBankroll
   private bet = 0
   private hands: PlayerHand[] = []
@@ -130,10 +140,12 @@ export class BlackjackGame {
   private insuranceBet = 0
   private message = ''
   private lastNet = 0
+  private lastBet = 0
   private stats: Stats = { ...DEFAULT_STATS }
   private settings: Settings = { ...DEFAULT_SETTINGS }
   private timers: ReturnType<typeof setTimeout>[] = []
   private disposed = false
+  private saveQueue: Promise<void> = Promise.resolve()
 
   constructor(
     private api: AgentCodeApiV1,
@@ -160,10 +172,17 @@ export class BlackjackGame {
   // --- betting ---------------------------------------------------------------
 
   addChip(value: number): void {
-    if (this.phase !== 'betting') return
+    if (this.phase !== 'betting' || !Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) return
     if (this.bet + value > this.bankroll) return
-    this.bet += value
+    this.bet = cash(this.bet + value)
     this.sfx.chip()
+    this.emit()
+  }
+
+  /** Restore the previous stake while letting a smaller bankroll cap it safely. */
+  repeatBet(): void {
+    if (this.phase !== 'betting') return
+    this.bet = Math.min(this.lastBet, this.bankroll)
     this.emit()
   }
 
@@ -176,7 +195,9 @@ export class BlackjackGame {
   deal(): void {
     if (this.phase !== 'betting' || this.bet <= 0 || this.bet > this.bankroll) return
     this.reshuffleIfLow()
-    this.bankroll -= this.bet
+    this.lastBet = this.bet
+    this.bankroll = cash(this.bankroll - this.bet)
+    void this.savePrefs()
     this.hands = [this.freshHand(this.bet)]
     this.dealer = []
     this.active = 0
@@ -184,7 +205,9 @@ export class BlackjackGame {
     this.holeHidden = true
     this.message = ''
     this.lastNet = 0
-    this.phase = 'playing'
+    // An opening deal is a transaction: neither mouse clicks nor shortcuts may start
+    // another turn while scheduled cards are still being added (Issue #2).
+    this.phase = 'dealing'
 
     // Opening deal — player, dealer(up), player, dealer(hole). Timed for feel; the
     // cards animate in as they arrive.
@@ -204,14 +227,17 @@ export class BlackjackGame {
       this.dealer.push(this.pop())
       this.sfx.deal()
       this.emit()
-      this.afterDeal()
+      // Leave time for the final card to land before offering a decision. This is
+      // game pacing, deliberately independent of the scene renderer implementation.
+      this.schedule(420, () => this.afterDeal())
     })
     this.emit()
   }
 
   private afterDeal(): void {
     const dealerUp = this.dealer[0]
-    if (dealerUp.rank === 'A' && this.bankroll >= Math.floor(this.hands[0].bet / 2)) {
+    const cost = insuranceCost(this.hands[0].bet)
+    if (dealerUp.rank === 'A' && cost > 0 && this.bankroll >= cost) {
       this.phase = 'insurance'
       this.message = 'Insurance?'
       this.emit()
@@ -222,12 +248,13 @@ export class BlackjackGame {
 
   takeInsurance(): void {
     if (this.phase !== 'insurance') return
-    const cost = Math.floor(this.hands[0].bet / 2)
+    const cost = insuranceCost(this.hands[0].bet)
     if (this.bankroll >= cost) {
-      this.bankroll -= cost
+      this.bankroll = cash(this.bankroll - cost)
       this.insuranceBet = cost
       this.sfx.chip()
     }
+    void this.savePrefs()
     this.resolveNaturals()
   }
 
@@ -243,7 +270,7 @@ export class BlackjackGame {
     const playerBJ = isBlackjack(this.hands[0].cards)
 
     if (this.insuranceBet > 0) {
-      if (dealerBJ) this.bankroll += this.insuranceBet * 3 // stake back + 2:1
+      if (dealerBJ) this.bankroll = cash(this.bankroll + this.insuranceBet * 3) // stake back + 2:1
     }
 
     if (dealerBJ || playerBJ) {
@@ -275,7 +302,9 @@ export class BlackjackGame {
     if (handValue(hand.cards).total > 21) {
       hand.outcome = 'bust'
       hand.done = true
-      this.sfx.lose()
+      this.advance()
+    } else if (handValue(hand.cards).total === 21) {
+      hand.done = true
       this.advance()
     } else {
       this.emit()
@@ -304,14 +333,14 @@ export class BlackjackGame {
   double(): void {
     if (!this.canDouble()) return
     const hand = this.cur()!
-    this.bankroll -= hand.bet
+    this.bankroll = cash(this.bankroll - hand.bet)
+    void this.savePrefs()
     hand.bet *= 2
     hand.doubled = true
     this.draw(hand)
     this.sfx.deal()
     if (handValue(hand.cards).total > 21) {
       hand.outcome = 'bust'
-      this.sfx.lose()
     }
     hand.done = true
     this.advance()
@@ -334,7 +363,8 @@ export class BlackjackGame {
     if (!this.canSplit()) return
     const hand = this.cur()!
     const isAces = hand.cards[0].rank === 'A'
-    this.bankroll -= hand.bet
+    this.bankroll = cash(this.bankroll - hand.bet)
+    void this.savePrefs()
 
     const second = this.freshHand(hand.bet)
     second.cards.push(hand.cards.pop()!)
@@ -345,7 +375,7 @@ export class BlackjackGame {
     // becomes active. Split aces get exactly one card each and stand.
     this.draw(hand)
     this.sfx.deal()
-    if (isAces) hand.done = true
+    if (isAces || handValue(hand.cards).total === 21) hand.done = true
 
     this.hands.splice(this.active + 1, 0, second)
 
@@ -362,7 +392,7 @@ export class BlackjackGame {
         if (h.cards.length < 2) {
           this.draw(h)
           this.sfx.deal()
-          if (h.splitAce) h.done = true
+          if (h.splitAce || handValue(h.cards).total === 21) h.done = true
         }
         if (!h.done) {
           this.emit()
@@ -422,8 +452,9 @@ export class BlackjackGame {
 
       // Payout (the stake was already removed at deal / double / split).
       if (hand.outcome === 'blackjack') {
-        this.bankroll += Math.round(hand.bet * 2.5)
-        net += Math.round(hand.bet * 1.5)
+        const profit = cash(hand.bet * 1.5)
+        this.bankroll += hand.bet + profit
+        net += profit
         this.stats.blackjacks += 1
         this.stats.wins += 1
         wonAny = true
@@ -440,12 +471,18 @@ export class BlackjackGame {
         net -= hand.bet
         this.stats.losses += 1
       }
+      hand.done = true
       this.stats.hands += 1
     }
 
-    // Insurance stake (if any) was already resolved in resolveNaturals; fold its net.
-    if (this.insuranceBet > 0 && !isBlackjack(this.dealer)) net -= this.insuranceBet
+    // resolveNaturals already credited the bankroll. Include BOTH insurance outcomes
+    // in the result too: a losing main bet hedged by winning insurance is a push, not
+    // a loss banner and loss fanfare beside an unchanged balance (Issue #3).
+    if (this.insuranceBet > 0)
+      net += isBlackjack(this.dealer) ? this.insuranceBet * 2 : -this.insuranceBet
 
+    net = cash(net)
+    this.bankroll = cash(this.bankroll)
     this.lastNet = net
     this.phase = 'settle'
     this.message = this.settleMessage(net, wonAny)
@@ -464,6 +501,7 @@ export class BlackjackGame {
   }
 
   newRound(): void {
+    if (this.phase !== 'settle' && this.phase !== 'betting') return
     this.clearTimers()
     this.hands = []
     this.dealer = []
@@ -472,13 +510,16 @@ export class BlackjackGame {
     this.insuranceBet = 0
     this.holeHidden = true
     this.message = ''
+    this.lastNet = 0
     this.phase = 'betting'
     this.reshuffleIfLow()
     this.emit()
   }
 
   rebuy(): void {
-    if (this.bankroll > 0) return
+    // The result screen offers the same fresh start as an empty betting screen.
+    // Never allow a buy-in during a live hand: zero then means chips are in play.
+    if (this.bankroll > 0 || (this.phase !== 'betting' && this.phase !== 'settle')) return
     this.bankroll = this.settings.startingBankroll
     void this.savePrefs()
     this.newRound()
@@ -486,7 +527,8 @@ export class BlackjackGame {
 
   setDecks(decks: number): void {
     if (this.phase !== 'betting') return
-    this.settings.decks = Math.max(1, Math.min(8, decks))
+    if (!Number.isFinite(decks)) return
+    this.settings.decks = Math.max(1, Math.min(8, Math.trunc(decks)))
     this.shoe = buildShoe(this.settings.decks)
     void this.savePrefs()
     this.emit()
@@ -547,6 +589,7 @@ export class BlackjackGame {
       insuranceBet: this.insuranceBet,
       message: this.message,
       lastNet: this.lastNet,
+      lastBet: this.lastBet,
       stats: { ...this.stats },
       settings: { ...this.settings },
       shoeRemaining: this.shoe.length,
@@ -554,38 +597,64 @@ export class BlackjackGame {
   }
 
   private emit(): void {
+    if (this.disposed) return
     this.onChange(this.snapshot())
   }
 
   private async loadPrefs(): Promise<void> {
     try {
-      const [bankroll, stats, settings] = await Promise.all([
+      const [bankroll, stats, settings, lastBet] = await Promise.all([
         this.api.storage.get<number>(CHIP_STORE_KEYS.bankroll),
         this.api.storage.get<Stats>(CHIP_STORE_KEYS.stats),
         this.api.storage.get<Settings>(CHIP_STORE_KEYS.settings),
+        this.api.storage.get<number>(CHIP_STORE_KEYS.lastBet),
       ])
-      if (settings && typeof settings.decks === 'number') {
-        this.settings = { ...DEFAULT_SETTINGS, ...settings }
+      if (this.disposed) return
+      if (settings && typeof settings === 'object') {
+        this.settings = {
+          decks: Number.isFinite(settings.decks) ? Math.max(1, Math.min(8, Math.trunc(settings.decks))) : DEFAULT_SETTINGS.decks,
+          hitSoft17: settings.hitSoft17 === true,
+          startingBankroll: Number.isFinite(settings.startingBankroll) && settings.startingBankroll >= 1
+            ? Math.floor(settings.startingBankroll) : DEFAULT_SETTINGS.startingBankroll,
+        }
         this.shoe = buildShoe(this.settings.decks)
       }
-      if (typeof bankroll === 'number' && bankroll > 0) this.bankroll = bankroll
-      else this.bankroll = this.settings.startingBankroll
-      if (stats && typeof stats.hands === 'number') this.stats = { ...DEFAULT_STATS, ...stats }
-      this.emit()
+      // Zero is real saved progress. Silently replacing it with a fresh buy-in makes
+      // the same bankroll mean different things before and after closing the modal.
+      this.bankroll = typeof bankroll === 'number' && Number.isFinite(bankroll) && bankroll >= 0
+        ? cash(bankroll) : this.settings.startingBankroll
+      if (typeof lastBet === 'number' && Number.isFinite(lastBet) && lastBet > 0)
+        this.lastBet = cash(lastBet)
+      if (stats && typeof stats === 'object') {
+        for (const key of Object.keys(DEFAULT_STATS) as Array<keyof Stats>) {
+          const value = stats[key]
+          if (typeof value === 'number' && Number.isFinite(value) && value >= 0)
+            this.stats[key] = Math.floor(value)
+        }
+      }
     } catch {
-      // storage unavailable — defaults are fine.
+      // Offline/unavailable storage does not stop a casual game from starting.
+    } finally {
+      if (!this.disposed) { this.phase = 'betting'; this.emit() }
     }
   }
 
-  private async savePrefs(): Promise<void> {
-    try {
+  private savePrefs(): Promise<void> {
+    // Snapshot at invocation and serialize writes. A slow host storage reply must not
+    // let an older wager overwrite a later settled balance; mutable stats references
+    // would also make the values depend on when the bridge serializes the request.
+    const bankroll = this.bankroll
+    const stats = { ...this.stats }
+    const settings = { ...this.settings }
+    const lastBet = this.lastBet
+    this.saveQueue = this.saveQueue.then(async () => {
       await Promise.all([
-        this.api.storage.set(CHIP_STORE_KEYS.bankroll, this.bankroll),
-        this.api.storage.set(CHIP_STORE_KEYS.stats, this.stats as unknown as never),
-        this.api.storage.set(CHIP_STORE_KEYS.settings, this.settings as unknown as never),
+        this.api.storage.set(CHIP_STORE_KEYS.bankroll, bankroll),
+        this.api.storage.set(CHIP_STORE_KEYS.stats, stats as unknown as never),
+        this.api.storage.set(CHIP_STORE_KEYS.settings, settings as unknown as never),
+        this.api.storage.set(CHIP_STORE_KEYS.lastBet, lastBet),
       ])
-    } catch {
-      // best-effort persistence.
-    }
+    }).catch(() => { /* best-effort persistence */ })
+    return this.saveQueue
   }
 }
