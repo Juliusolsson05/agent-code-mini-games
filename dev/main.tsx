@@ -1,4 +1,4 @@
-import type { AgentCodeApiV1, JsonValue } from 'agent-code-extension-api'
+import type { AgentCodeApiV1, JsonValue, Disposable, ExtensionModule, ViewMount } from 'agent-code-extension-api'
 
 import { router } from '../src/router'
 import { mountMiniGames } from '../src/view/mount'
@@ -78,8 +78,7 @@ const devApi: AgentCodeApiV1 = {
   },
 }
 
-// Land straight on whatever we're iterating on. Default = blackjack (the WebGL work);
-// override with ?game=launcher or ?game=snake. The in-app "‹ Games" button still works.
+// Open the arcade by default, with direct routes for focused iteration.
 const requested = new URLSearchParams(location.search).get('game')
 if (
   requested === 'launcher' ||
@@ -89,12 +88,36 @@ if (
 ) {
   router.show(requested)
 } else {
-  router.show('blackjack')
+  router.show('launcher')
 }
 
 const host = document.getElementById('app')
 if (!host) throw new Error('dev harness: #app root missing')
-mountMiniGames(devApi)(host)
+if (new URLSearchParams(location.search).get('build') === 'production') {
+  // Exercise the exact committed entry point as well as the source/HMR path. Vite
+  // serves this self-contained file without rebundling it; registering commands and
+  // mounting the view mirrors the host lifecycle without pretending to test Electron.
+  const entry = '/dist/index.js'
+  const extension = await import(/* @vite-ignore */ entry) as ExtensionModule
+  let mount: ViewMount | undefined
+  const commands = new Map<string, () => void | Promise<void>>()
+  const subscriptions: Disposable[] = []
+  await extension.activate({ api: devApi, subscriptions,
+    registerView: (_id, view) => { mount = view; return { dispose() {} } },
+    registerCommand: (id, run) => { commands.set(id, run); return { dispose() { commands.delete(id) } } },
+  })
+  if (requested) await commands.get(`mini-games.${requested}`)?.()
+  if (!mount) throw new Error('packaged extension did not register its view')
+  const dispose = (mount as ViewMount)(host)
+  window.addEventListener('beforeunload', () => {
+    dispose?.()
+    for (const subscription of subscriptions.reverse()) subscription.dispose()
+    void extension.deactivate?.()
+  }, { once: true })
+} else {
+  const dispose = mountMiniGames(devApi)(host)
+  window.addEventListener('beforeunload', () => dispose?.(), { once: true })
+}
 
 // ?autodeal — drive a hand automatically so a headless screenshot lands on the
 // dealt state (cards + chips on the felt), which is where the lighting/material work
@@ -112,7 +135,7 @@ if (new URLSearchParams(location.search).has('autoplay')) {
     [3000, 'ArrowRight'],
   ]
   for (const [at, key] of moves) {
-    setTimeout(() => window.dispatchEvent(new KeyboardEvent('keydown', { key })), at)
+    setTimeout(() => document.querySelector('.sk-root')?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })), at)
   }
 }
 
@@ -123,8 +146,7 @@ if (new URLSearchParams(location.search).has('autosweep')) {
     const cells = document.querySelectorAll<HTMLElement>('.ms-cell')
     const target = cells[Math.floor(cells.length / 2) + 2]
     if (target) {
-      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }))
-      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }))
+      target.click()
     }
   }, 500)
 }
@@ -143,8 +165,8 @@ if (new URLSearchParams(location.search).has('autodeal')) {
   const drive = () => {
     tries++
     // Add a chip, then hit Deal. Once we're past betting, stop.
-    clickSel('.mg-chip-btn')
-    const dealt = clickSel('.mg-bet .mg-btn.primary')
+    clickSel('.bj-chip')
+    const dealt = clickSel('.bj-bet-actions .bj-primary')
     if (!dealt && tries < 40) setTimeout(drive, 60)
   }
   setTimeout(drive, 120)

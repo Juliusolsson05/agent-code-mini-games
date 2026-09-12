@@ -30,6 +30,15 @@ The parent owns shared integration, Snake engine/types, Blackjack engine/types, 
 - [x] Read all authored source, docs, configuration and development tools; inspect packaged entry point.
 - [x] Fetch/pull main; latest base is bfd831a (v0.6.1); baseline typecheck passes.
 - [x] Create feature Issue #1 and dedicated worktree.
-- [ ] Define contracts and implement game improvements.
-- [ ] Behavioral tests, production build and browser QA.
+- [x] Define contracts and implement game improvements.
+- [x] Behavioral tests, production build and browser QA.
 - [ ] Final review and PR.
+
+## Verified implementation
+
+- Snake is rebuilt around fixed-step completed-move interpolation, a two-turn queue, three paces, safe tail chasing and complete-board victory. Its garden renderer, sound, records and focus/touch controls are new.
+- Blackjack now locks opening deals, includes insurance in net results, preserves zero bankroll, supports buy-in/rebet and shows every split hand. Odd-dollar naturals and insurance use cent precision; table artwork follows S17/H17. Issues #2, #3 and #7 cover the independently discovered rule failures.
+- Minesweeper supports both mouse chord orders, touch flag mode and scoped grid keyboard navigation. Its clock freezes even at zero seconds, and difficulty-specific cell sizes keep all boards near 800px total height. Issues #4 and #6 cover the original regressions; #5 covers Snake's collision rule.
+- Removed obsolete game CSS after moving the remaining classic tile rules beside Minesweeper. Theme ink and backgrounds now switch together, avoiding transient unreadable controls during a host theme change.
+- All 22 deterministic tests pass. Browser checks cover pickup, pause, focus isolation, replay, record persistence, swipe, atomic dealing, bankruptcy, settings, four split hands, both chord orders, touch flags, victory/loss and production entry-point navigation. Production build and typecheck pass. Axe audits found no violations across the four gallery themes after final contrast fixes.
+- Added CI and an isolated browser-check server that leaves the user's live preview/storage alone. Version 0.7.0 includes the rebuilt committed bundle. Browser QA covers Chromium, not the Electron extension bridge; actual host installation remains a review step.

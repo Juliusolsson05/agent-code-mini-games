@@ -1,31 +1,36 @@
-# agent-code-mini-games
+# Mini Games for Agent Code
 
-A little arcade inside [Agent Code](https://github.com/Juliusolsson05/agent-code) — a modal hub of mini-games. First up: a fully-featured, casino-grade **Blackjack**.
+A three-game arcade inside [Agent Code](https://github.com/Juliusolsson05/agent-code). Everything runs locally in the extension sandbox: procedural artwork, synthesized audio, and saved progress, with no network requests or external assets during play.
 
-## Blackjack
+- **Snake:** an illustrated garden, smooth movement, two buffered turns, three paces, separate records, and full-board victory. Arrow keys / WASD, swipe, or direction buttons steer; Space / Escape pause; Enter starts or replays; M toggles sound. Leaving the game’s focus pauses it until you explicitly resume.
+- **Blackjack:** a procedural 3D table with timed dealing, hit, stand, double, up to four split hands, insurance, and repeat wager. Natural blackjack pays 3:2; split 21 pays a regular win. Payouts use cent precision. Choose 1–8 decks and S17/H17 before dealing. H / S / D / P play; Enter deals or rebets; Y / N answer insurance. Bankroll, stats, settings, and sound preference persist. All chips are free practice currency.
+- **Minesweeper:** classic beveled tiles at Beginner, Intermediate, and Expert sizes, a safe first opening, records, and visible win/loss boards. Click to reveal, right-click to mark, or use touch flag mode. Click a revealed number, middle-click, or hold both buttons to chord. Arrow keys navigate; Enter / Space reveal or chord; F marks; N resets. Incorrect flags can still detonate a mine.
 
-- **Everything is SVG** — a custom playing-card deck (pip layouts, court cards, patterned back), poker chips, and a felt table with a wooden rail and the classic "BLACKJACK PAYS 3 TO 2" arc.
-- **Full rules** — hit · stand · **double** · **split** (incl. split aces) · **insurance**; dealer stands on 17 (H17 optional); blackjack pays 3:2.
-- **Chips + bankroll** persisted; win/loss/blackjack **stats** tracked; **1–8 deck** shoe.
-- **Feel** — timed dealing + hole-card reveal, active-hand glow, result banners, and layered **synthesized sound** (chip clinks, card swishes, win/blackjack fanfares).
-- Keyboard: **H** hit · **S** stand · **D** double · **P** split · **Enter** deal / next.
-
-Runs entirely inside the extension sandbox — no network, no external assets.
+The launcher and game controls follow the host theme. The garden, felt, cards, chips, and classic minefield keep their artwork palettes. Keyboard input stays within the focused game.
 
 ## Install
 
-Agent Code → **Settings → Apps**:
-- **From GitHub:** `Juliusolsson05/agent-code-mini-games`
-- **Local dev:** **Load folder…** → this repo
+In Agent Code → **Settings → Apps**, install from GitHub using `Juliusolsson05/agent-code-mini-games`, or choose **Load folder…** for a local checkout. Open **Play Mini Games**, **Play Snake**, **Play Blackjack**, or **Play Minesweeper** from the command palette.
 
-Then run **Play Blackjack** (or **Play Mini Games**) from the command palette.
+`dist/index.js` is committed because GitHub installations use the source tarball directly. Rebuild before loading a modified checkout. Existing saved bankroll and Minesweeper records remain compatible; the old Snake best migrates to the Classic pace record.
 
-## Develop
+## Develop and verify
+
+Use Node 22 or newer.
 
 ```bash
-NODE_ENV=development npm install --include=dev   # keep devDeps (vite)
-NODE_ENV=production  npm run build               # production build (dist/index.js)
+npm install --include=dev
+npm run dev:web
 ```
 
-Built with React (no framer-motion — CSS animations keep the bundle lean) against
-[`agent-code-extension-api`](https://github.com/Juliusolsson05/agent-code-extension-api). `dist/` is committed so the GitHub source tarball is directly installable.
+Open the printed local URL. `/dev/?game=snake`, `blackjack`, or `minesweeper` opens a specific game. `/dev/gallery.html` shows all screens with theme switches. `/dev/?build=production` exercises the built extension’s activation, commands, and view mount using the browser storage adapter.
+
+```bash
+npm test                           # deterministic rules and state regressions
+npm run typecheck
+NODE_ENV=production npm run build  # required production JSX transform
+npx playwright install chromium   # once, for browser checks
+npm run test:browser               # isolated server/context; screenshots in test-results/
+```
+
+Set `CHROME_PATH` to an existing Chrome executable to use it for browser checks. Those checks exercise real controls, pointer order, touch, pause, replay, records, split hands, and the production bundle; they do not replace verification inside the Electron extension host. The browser harness uses its own localStorage namespace and never reads Agent Code’s saved games.
