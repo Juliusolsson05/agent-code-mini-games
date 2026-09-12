@@ -135,6 +135,7 @@ export class BlackjackScene {
   private lastBet = -1
   private props: TableProps
   private rack: ChipRack
+  private table: ReturnType<typeof buildTable>
   /**
    * Cards actually swept into the tray this shoe. Counted here rather than derived from
    * `shoeRemaining`, because the engine reshuffles at 25% and that made the tray RESET
@@ -174,7 +175,7 @@ export class BlackjackScene {
 
     installRoom(this.scene)
     this.lights = installLighting(this.scene, this.renderer)
-    buildTable(this.scene)
+    this.table = buildTable(this.scene)
     this.props = buildProps(this.scene)
     this.rack = new ChipRack(this.scene)
 
@@ -189,6 +190,7 @@ export class BlackjackScene {
 
   update(state: BJState): void {
     if (this.disposed) return
+    this.table.setHouseRule(state.settings.hitSoft17)
     const desired = new Set<string>()
     let dealtSoFar = 0
 

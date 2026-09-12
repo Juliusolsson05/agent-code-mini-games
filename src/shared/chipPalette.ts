@@ -72,8 +72,8 @@ export function rackBreakdown(bankroll: number): Array<{ denom: ChipValue; count
     rem -= nPrimary * primary
   }
 
-  // Dust settles downward so the rack sums to the bankroll EXACTLY. Without this the
-  // rack would be an approximation, and a player who can count chips would notice.
+  // Represent every whole dollar. Fractional winnings stay in the numeric bankroll;
+  // the artwork has no sub-dollar denomination, so the HUD remains the ledger.
   for (let i = pi + 1; i < CHIP_DENOMS.length; i++) {
     const d = CHIP_DENOMS[i]
     const n = Math.floor(rem / d)

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { feltTexture } from '../textures/felt'
 
 import { feltMaterial, railMaterial, trimMaterial, woodMaterial } from '../materials'
 import {
@@ -29,7 +30,7 @@ function traceRoundedRect(ctx: THREE.Shape | THREE.Path, hw: number, hd: number,
   ctx.quadraticCurveTo(-hw, -hd, -hw + r, -hd)
 }
 
-export function buildTable(scene: THREE.Scene): void {
+export function buildTable(scene: THREE.Scene): { setHouseRule(hitSoft17: boolean): void } {
   // --- wood body ---------------------------------------------------------------
   // Its TOP face sits just under the felt (y = 0 is the datum, §world.ts).
   const body = new THREE.Mesh(new THREE.BoxGeometry(TABLE_W, TABLE_H, TABLE_D), woodMaterial())
@@ -95,4 +96,17 @@ export function buildTable(scene: THREE.Scene): void {
   rail.castShadow = true
   rail.receiveShadow = true
   scene.add(rail)
+  let currentRule = false
+  return {
+    setHouseRule(hitSoft17) {
+      if (hitSoft17 === currentRule) return
+      currentRule = hitSoft17
+      // The rule is printed on the table as well as shown in the controls. Repaint
+      // only on a rule change so the physical table never contradicts the dealer.
+      const previous = felt.material.map
+      felt.material.map = feltTexture(hitSoft17)
+      previous?.dispose()
+    },
+  }
+
 }

@@ -10,6 +10,7 @@ const GOLD = '#f0e2b6'
 export type TableLogoProps = {
   /** Canvas size in px. Must match the felt texture's aspect (FELT_W : FELT_D). */
   w: number
+  hitSoft17?: boolean
   h: number
   /** Baseline of the headline, in px, derived from a world Z. */
   legendY: number
@@ -17,7 +18,7 @@ export type TableLogoProps = {
   circle: { cx: number; cy: number; rx: number; ry: number }
 }
 
-export function TableLogo({ w, h, legendY, circle }: TableLogoProps) {
+export function TableLogo({ w, h, legendY, circle, hitSoft17 = false }: TableLogoProps) {
   // Type scales with the texture so the legend is a constant physical size on the felt.
   //
   // Kept deliberately small. The legend is SIGNAGE — it belongs to the furniture, not to
@@ -35,7 +36,7 @@ export function TableLogo({ w, h, legendY, circle }: TableLogoProps) {
           BLACKJACK PAYS 3 TO 2
         </text>
         <text x={w / 2} y={legendY + sub * 1.9} fontSize={sub} fontWeight={600} fill={GOLD} fillOpacity="0.55">
-          DEALER MUST STAND ON 17
+          {hitSoft17 ? 'DEALER HITS SOFT 17' : 'DEALER MUST STAND ON 17'}
         </text>
         <text x={w / 2} y={legendY + sub * 3.5} fontSize={sub} fontWeight={600} fill={GOLD} fillOpacity="0.55">
           INSURANCE PAYS 2 TO 1
