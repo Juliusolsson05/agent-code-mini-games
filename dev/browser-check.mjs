@@ -87,10 +87,19 @@ try {
   },ranks)
   await cards(['10','10','6','9'])
   await button('Add $500 to wager').click()
-  await button(/^Deal /).click()
-  await page.locator('.bj-root').focus()
-  await page.keyboard.press('h')
-  assert.match(await text('.bj-status'),/Dealing/)
+  // CI uses software WebGL: a browser round trip can outlast the entire opening
+  // deal. Keep the input and observation in one event-loop turn, with microtasks
+  // only to flush React's discrete updates. Timed rules remain covered separately.
+  const dealing = await button(/^Deal /).evaluate(async deal => {
+    deal.click()
+    await Promise.resolve()
+    const root=document.querySelector('.bj-root')
+    root.focus()
+    root.dispatchEvent(new KeyboardEvent('keydown',{key:'h',bubbles:true,cancelable:true}))
+    await Promise.resolve()
+    return document.querySelector('.bj-status').textContent
+  })
+  assert.match(dealing,/Dealing/)
   await button(/^Stand /).waitFor()
   assert.equal(await page.locator('.bj-hand .bj-card-readout > span').count(),2)
   await shot('blackjack-dealt')
@@ -115,8 +124,12 @@ try {
   for(let i=0;i<4;i++) await button(/^Stand /).click()
   await button(/^Rebet /).waitFor()
   await shot('blackjack-result')
-  await button(/^Rebet /).click()
-  assert.match(await text('.bj-status'),/Dealing/)
+  const rebetStatus = await button(/^Rebet /).evaluate(async rebet => {
+    rebet.click()
+    await Promise.resolve()
+    return document.querySelector('.bj-status').textContent
+  })
+  assert.match(rebetStatus,/Dealing/)
   console.log('PASS Blackjack: atomic deal, bankruptcy buy-in, settings, four split hands, rebet')
 
   await open('minesweeper')
