@@ -1,8 +1,8 @@
 {
   "id": "mini-games",
   "name": "Mini Games",
-  "description": "A little arcade inside Agent Code — garden Snake, 3D Blackjack, classic Minesweeper, and a typing test.",
-  "version": "0.9.0",
+  "description": "A little arcade inside Agent Code — garden Snake, 3D Blackjack, classic Minesweeper, a typing test, and Blockfall.",
+  "version": "0.10.0",
   "apiVersion": 2,
   "entry": "dist/runtime.js",
   "activationEvents": [
@@ -10,7 +10,8 @@
     "onView:mini-games.blackjack",
     "onView:mini-games.snake",
     "onView:mini-games.minesweeper",
-    "onView:mini-games.typing"
+    "onView:mini-games.typing",
+    "onView:mini-games.blockfall"
   ],
   "contributes": {
     "commands": [
@@ -72,6 +73,20 @@
           "practice",
           "monkeytype"
         ]
+      },
+      {
+        "id": "mini-games.blockfall",
+        "title": "Play Blockfall",
+        "keywords": [
+          "blockfall",
+          "blocks",
+          "falling blocks",
+          "tetromino",
+          "line clear",
+          "puzzle",
+          "game",
+          "arcade"
+        ]
       }
     ],
     "views": [
@@ -102,6 +117,12 @@
       {
         "id": "mini-games.typing",
         "title": "Typing Test",
+        "mount": "modal",
+        "entry": "dist/view.js"
+      },
+      {
+        "id": "mini-games.blockfall",
+        "title": "Blockfall",
         "mount": "modal",
         "entry": "dist/view.js"
       }

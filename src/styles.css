@@ -188,8 +188,10 @@
 /* The launcher has one confident hierarchy: invitation, artwork, game, action. These
  * rules extend the existing theme-aware preview work while giving the artwork enough
  * physical space to read as a game rather than a small icon in a utility menu. */
-/* Four cabinets in one row at the same tile size three had at 776px, so every preview
- * keeps its legibility and the launcher stays one short row inside the modal. */
+/* Five cabinets share one row at the launcher's existing width, so the arcade stays one
+ * short row inside the modal. Tiles are narrower than in the four-game row: taglines may
+ * wrap to two lines instead of overflowing, and the reserved two-line height keeps every
+ * "Let's play" rule aligned across the row. */
 .mg-launcher { width: 1000px; padding: 12px; }
 .mg-head { align-items: center; padding: 8px 2px 28px; }
 .mg-eyebrow { display: flex; align-items: center; gap: 9px; font: 10px var(--code); letter-spacing: .18em; color: var(--muted); }
@@ -198,17 +200,17 @@
 .mg-mark > span { color: var(--gold); }
 .mg-intro { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .mg-head-note { line-height: 1.7; font-size: 9px; text-align: right; letter-spacing: .15em; }
-.mg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; }
+.mg-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .mg-cab { border-radius: 15px; }
 .mg-cab-light { height: 3px; background: var(--marquee); opacity: .65; }
 .mg-cab:hover .mg-cab-light { opacity: 1; }
 .mg-cab-art { padding: 0; overflow: hidden; }
 .mg-cab-art > svg { transition: transform .25s ease; }
 .mg-cab:hover .mg-cab-art > svg { transform: scale(1.025); }
-.mg-cab-body { padding: 18px; }
+.mg-cab-body { padding: 16px 15px; }
 .mg-cab-meta { display: flex; justify-content: space-between; font: 9px var(--code); letter-spacing: .13em; color: var(--muted); }
-.mg-cab-name { margin-top: 12px; font-size: 21px; letter-spacing: -.04em; font-weight: 700; }
-.mg-cab-line { margin-top: 7px; font-size: 11px; line-height: 1.6; white-space: nowrap; }
+.mg-cab-name { margin-top: 12px; font-size: 19px; letter-spacing: -.04em; font-weight: 700; white-space: nowrap; }
+.mg-cab-line { margin-top: 7px; min-height: 3.2em; font-size: 11px; line-height: 1.6; }
 .mg-cab-play { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--ink); font-size: 11px; font-weight: 650; }
 .mg-cab-play > span { font-size: 18px; color: var(--marquee); }
 .mg-launcher-foot { display: flex; justify-content: space-between; margin-top: 20px; color: var(--muted); font-size: 10px; }

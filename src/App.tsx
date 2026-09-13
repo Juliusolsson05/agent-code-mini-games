@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { MiniGamesApi } from './api'
 import type { GameAudio } from './audio'
 import { Blackjack } from './games/blackjack/Blackjack'
+import { Blockfall } from './games/blockfall/Blockfall'
 import { Minesweeper } from './games/minesweeper/Minesweeper'
 import { Snake } from './games/snake/Snake'
 import { TypingTest } from './games/typing/TypingTest'
@@ -22,6 +23,8 @@ export function App({ api, audio }: { api: MiniGamesApi; audio: GameAudio }) {
         <Minesweeper api={api} onExit={() => router.show('launcher')} />
       ) : screen === 'typing' ? (
         <TypingTest api={api} onExit={() => router.show('launcher')} />
+      ) : screen === 'blockfall' ? (
+        <Blockfall api={api} onExit={() => router.show('launcher')} />
       ) : (
         <Launcher onPlay={s => router.show(s)} />
       )}

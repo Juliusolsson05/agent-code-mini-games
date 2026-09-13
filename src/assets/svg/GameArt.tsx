@@ -259,3 +259,65 @@ export function TypingArt() {
     </svg>
   )
 }
+
+/** Blockfall: the night-blue well, a stack waiting for its quad, the I piece above its ghost. */
+export function BlockfallArt() {
+  // Base and highlight tones from the game's own renderer palette.
+  const SWATCH: Record<string, [string, string]> = {
+    I: ['#35c6e6', '#a8f4ff'], O: ['#f5c842', '#fff1a6'], T: ['#a86ef2', '#e0c2ff'], S: ['#5fd07a', '#bff7c9'],
+    Z: ['#f05f6e', '#ffb7be'], J: ['#517ff2', '#b3c8ff'], L: ['#f28e3d', '#ffcb9c'],
+  }
+  const CELL = 10
+  const LEFT = 50
+  // Bottom-aligned rows, top to bottom. The empty right-hand column is the well the
+  // falling I piece is about to fill: the one picture every stacker recognises.
+  const STACK = ['.T....OO..', 'TTTJSSOOL.', 'ZZJJJSSLL.', 'LZZIIIIOO.', 'LLLJJSSOO.']
+  const block = (key: string, x: number, y: number, size: number, id: string) => {
+    const [base, light] = SWATCH[key]!
+    return (
+      <g key={id}>
+        <rect x={x} y={y} width={size - 0.8} height={size - 0.8} rx={size * 0.18} fill={base} />
+        <rect x={x + size * 0.12} y={y + size * 0.1} width={size * 0.64} height={size * 0.2} rx={size * 0.1} fill={light} opacity="0.7" />
+      </g>
+    )
+  }
+  const stack: JSX.Element[] = []
+  STACK.forEach((row, r) => [...row].forEach((key, c) => {
+    if (key !== '.') stack.push(block(key, LEFT + c * CELL, 130 - (STACK.length - r) * CELL, CELL, `s${r}-${c}`))
+  }))
+  const mini = (key: string, cells: [number, number][], ox: number, oy: number) =>
+    cells.map(([x, y], i) => block(key, ox + x * 6, oy + y * 6, 6, `${key}${ox}-${i}`))
+  return (
+    <svg viewBox={VB} className="mg-art" aria-hidden="true">
+      <defs>
+        <radialGradient id="bfArtBg" cx="50%" cy="0%" r="100%">
+          <stop offset="0%" stopColor="#1f2442" />
+          <stop offset="100%" stopColor="#0d0f1c" />
+        </radialGradient>
+        <linearGradient id="bfArtWell" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0b0d19" />
+          <stop offset="100%" stopColor="#151932" />
+        </linearGradient>
+      </defs>
+      <rect width="200" height="130" fill="url(#bfArtBg)" />
+      <rect x={LEFT - 2} y="-2" width={10 * CELL + 3.2} height="134" fill="url(#bfArtWell)" stroke="#8f96f0" strokeOpacity="0.35" />
+      {Array.from({ length: 9 }, (_, i) => (
+        <rect key={`guide${i}`} x={LEFT + (i + 1) * CELL - 0.65} y="0" width="0.5" height="130" fill="#9aa4ff" opacity="0.07" />
+      ))}
+      {stack}
+      {[0, 1, 2, 3].map(i => (
+        <rect key={`ghost${i}`} x={LEFT + 9 * CELL + 1} y={130 - 4 * CELL + i * CELL + 1} width={CELL - 2.8} height={CELL - 2.8} rx="1.6"
+          fill="#46dcff" fillOpacity="0.12" stroke="#46dcff" strokeOpacity="0.7" strokeWidth="1" />
+      ))}
+      <rect x={LEFT + 9 * CELL - 3} y="19" width={CELL + 5} height={4 * CELL + 5} rx="5" fill="#46dcff" opacity="0.2" />
+      {[0, 1, 2, 3].map(i => block('I', LEFT + 9 * CELL, 22 + i * CELL, CELL, `falling${i}`))}
+
+      <rect x="8" y="12" width="34" height="30" rx="5" fill="#ffffff" fillOpacity="0.05" stroke="#a0aae6" strokeOpacity="0.16" />
+      {mini('T', [[1, 0], [0, 1], [1, 1], [2, 1]], 16, 21)}
+      <rect x="158" y="12" width="34" height="62" rx="5" fill="#ffffff" fillOpacity="0.05" stroke="#a0aae6" strokeOpacity="0.16" />
+      {mini('O', [[0, 0], [1, 0], [0, 1], [1, 1]], 169, 18)}
+      {mini('S', [[1, 0], [2, 0], [0, 1], [1, 1]], 166, 38)}
+      {mini('L', [[2, 0], [0, 1], [1, 1], [2, 1]], 166, 56)}
+    </svg>
+  )
+}

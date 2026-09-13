@@ -37,7 +37,7 @@ await page.addInitScript(() => {
 
 try {
   await open('launcher')
-  assert.equal(await page.locator('.mg-cab').count(),4)
+  assert.equal(await page.locator('.mg-cab').count(),5)
   await shot('launcher')
   await button('Play Snake').click()
   await page.locator('.sk-root').waitFor()
@@ -118,6 +118,43 @@ try {
   await open('typing')
   assert.equal(await exact('10 words').getAttribute('aria-pressed'),'true')
   console.log('PASS Typing Test: words mode, correction, results, tab restart, host focus isolation, saved settings')
+
+  await open('blockfall')
+  await page.locator('.bf-root').waitFor()
+  const blockfallStatus = status => page.locator(`.bf-root[data-status="${status}"]`).waitFor()
+  await shot('blockfall-ready')
+  await button('Play Marathon').click()
+  await blockfallStatus('countdown')
+  await blockfallStatus('playing')
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('KeyX')
+  await page.keyboard.press('Space')
+  await page.waitForFunction(() => document.querySelector('.bf-score strong')?.textContent !== '0')
+  await shot('blockfall-playing')
+  await page.keyboard.press('Escape')
+  await blockfallStatus('paused')
+  await shot('blockfall-paused')
+  await page.keyboard.press('Enter')
+  await blockfallStatus('playing')
+  // Focus leaving the well pauses play, and host text entry keeps its keystrokes.
+  await page.evaluate(() => {
+    const input=document.createElement('input');input.id='blockfall-host-input';document.body.append(input);input.focus()
+  })
+  await blockfallStatus('paused')
+  await page.keyboard.type('zxc ')
+  assert.equal(await page.locator('#blockfall-host-input').inputValue(),'zxc ')
+  await button('Keep playing').click()
+  await blockfallStatus('playing')
+  // Hard-dropping every piece where it spawns tops out long before any row can fill.
+  for(let i=0;i<80 && await page.locator('.bf-root').getAttribute('data-status')==='playing';i++) await page.keyboard.press('Space')
+  await blockfallStatus('over')
+  await page.getByRole('heading',{name:'Out of room.'}).waitFor()
+  await shot('blockfall-over')
+  await button('Play again').click()
+  await blockfallStatus('countdown')
+  await open('blockfall')
+  await page.waitForFunction(() => document.querySelector('.bf-best strong')?.textContent !== '—')
+  console.log('PASS Blockfall: countdown, hard drop scoring, pause, focus isolation, top out, replay, saved record')
 
   // Real-time input remains covered by Snake above. For the 3D table, advance the
   // real game's timers/RAF explicitly. Continuous shadow rendering on a software
@@ -258,14 +295,14 @@ try {
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+60000))
   controlledClock = true
   await page.goto(`${base}dev/?build=production&game=launcher`)
-  for(const [name,selector] of [['Snake','.sk-root'],['Blackjack','.bj-root'],['Minesweeper','.mine-root'],['Typing Test','.tt-root']]) {
+  for(const [name,selector] of [['Snake','.sk-root'],['Blackjack','.bj-root'],['Minesweeper','.mine-root'],['Typing Test','.tt-root'],['Blockfall','.bf-root']]) {
     await button(`Play ${name}`).click()
     await page.locator(selector).waitFor()
     await shot(`packaged-${name.toLowerCase()}`)
     await button(name==='Blackjack'?'Back to games':'Arcade').click()
   }
   assert.deepEqual(errors,[])
-  console.log('PASS production bundle: all four games mount and navigate; no page errors')
+  console.log('PASS production bundle: all five games mount and navigate; no page errors')
 } finally {
   await context.close()
   await browser.close()
