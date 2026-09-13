@@ -3,3 +3,6 @@ test-results/
 package-lock.json
 .DS_Store
 *.log
+# Python environment and bytecode from dev/generate-typing-words.py.
+.venv-words/
+__pycache__/

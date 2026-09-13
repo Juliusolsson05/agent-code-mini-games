@@ -188,7 +188,9 @@
 /* The launcher has one confident hierarchy: invitation, artwork, game, action. These
  * rules extend the existing theme-aware preview work while giving the artwork enough
  * physical space to read as a game rather than a small icon in a utility menu. */
-.mg-launcher { width: 776px; padding: 12px; }
+/* Four cabinets in one row at the same tile size three had at 776px, so every preview
+ * keeps its legibility and the launcher stays one short row inside the modal. */
+.mg-launcher { width: 1000px; padding: 12px; }
 .mg-head { align-items: center; padding: 8px 2px 28px; }
 .mg-eyebrow { display: flex; align-items: center; gap: 9px; font: 10px var(--code); letter-spacing: .18em; color: var(--muted); }
 .mg-lamp { width: 7px; height: 7px; box-shadow: none; border-radius: 50%; }
@@ -196,7 +198,7 @@
 .mg-mark > span { color: var(--gold); }
 .mg-intro { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 .mg-head-note { line-height: 1.7; font-size: 9px; text-align: right; letter-spacing: .15em; }
-.mg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.mg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; }
 .mg-cab { border-radius: 15px; }
 .mg-cab-light { height: 3px; background: var(--marquee); opacity: .65; }
 .mg-cab:hover .mg-cab-light { opacity: 1; }

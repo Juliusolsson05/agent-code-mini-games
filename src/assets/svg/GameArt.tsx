@@ -224,3 +224,38 @@ export function MinesweeperArt() {
     </svg>
   )
 }
+
+/** Typing Test: a quiet page of words, the first line typed, one slip, the caret. */
+export function TypingArt() {
+  const PAGE = '#1e1f23'
+  const TYPED = '#e8e4d6'
+  const WAITING = '#5c5f67'
+  const SLIP = '#e2555b'
+  const CARET = '#f2c94c'
+  const MONO = "ui-monospace, 'SF Mono', Menlo, monospace"
+  // Monospace glyphs advance about 0.6em, so at 13px a character is ~7.8 units wide.
+  // The caret and the underline are placed by character count on that grid.
+  const CHAR = 7.8
+  const X = 18
+  return (
+    <svg viewBox={VB} className="mg-art" aria-hidden="true">
+      <rect width="200" height="130" fill={PAGE} />
+      <text x={X} y="28" fontSize="12" fontFamily={MONO} fill={CARET}>84</text>
+      <text x={X + 20} y="28" fontSize="8" fontFamily={MONO} fill={WAITING}>wpm</text>
+      <text x="182" y="28" fontSize="8" fontFamily={MONO} fill={WAITING} textAnchor="end">0:21</text>
+
+      <g fontSize="13" fontFamily={MONO}>
+        <text x={X} y="60">
+          <tspan fill={TYPED}>the wo</tspan><tspan fill={SLIP}>t</tspan><tspan fill={TYPED}>ds just</tspan>
+        </text>
+        <text x={X} y="82">
+          <tspan fill={TYPED}>flow when </tspan><tspan fill={WAITING}>you let</tspan>
+        </text>
+        <text x={X} y="104" fill={WAITING}>them go easy</text>
+      </g>
+      {/* The word with the slip keeps its underline, the way the real test marks it. */}
+      <rect x={X + 4 * CHAR} y="64" width={5 * CHAR} height="1.6" fill={SLIP} opacity="0.75" />
+      <rect x={X + 10 * CHAR - 1} y="70" width="2" height="15" rx="1" fill={CARET} />
+    </svg>
+  )
+}
