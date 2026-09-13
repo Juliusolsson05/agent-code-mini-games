@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import type { AgentCodeApiV1 } from 'agent-code-extension-api'
+import type { MiniGamesApi } from '../../api'
 import { PACES, SnakeGame, type Dir, type Pace, type Records, type SnakeSnapshot } from './engine/game'
 import { SnakeRenderer } from './render/renderer'
 import { SnakeAudio } from './snakeAudio'
@@ -28,7 +28,7 @@ const consumesKeys = (target: EventTarget | null) => target instanceof Element &
 /** React owns the scoreboard and controls; the renderer owns the moving creature.
  * Keeping completed simulation moves in refs prevents 60 React renders a second and
  * makes focus, persistence, and pause behaviour independent of animation timing. */
-export function Snake({ api, onExit }: { api: AgentCodeApiV1; onExit: () => void }) {
+export function Snake({ api, onExit }: { api: MiniGamesApi; onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const actionsRef = useRef<Actions | null>(null)

@@ -12,7 +12,13 @@ The launcher and game controls follow the host theme. The garden, felt, cards, c
 
 In Agent Code → **Settings → Apps**, install from GitHub using `Juliusolsson05/agent-code-mini-games`, or choose **Load folder…** for a local checkout. Open **Play Mini Games**, **Play Snake**, **Play Blackjack**, or **Play Minesweeper** from the command palette.
 
-`dist/index.js` is committed because GitHub installations use the source tarball directly. Rebuild before loading a modified checkout. Existing saved bankroll and Minesweeper records remain compatible; the old Snake best migrates to the Classic pace record.
+The API v2 build has one managed runtime and one shared modal view module. Each
+launch command maps to a modal view id, so a cold “Play Snake” or “Play Blackjack”
+command opens that game directly without running DOM code in the background.
+`dist/runtime.js`, `dist/view.js`, and their chunks are committed because GitHub
+installations use the source tarball directly. Rebuild before loading a modified
+checkout. Existing saved bankroll and Minesweeper records remain compatible; the
+old Snake best migrates to the Classic pace record.
 
 ## Develop and verify
 
@@ -29,6 +35,8 @@ Open the printed local URL. `/dev/?game=snake`, `blackjack`, or `minesweeper` op
 npm test                           # deterministic rules and state regressions
 npm run typecheck
 NODE_ENV=production npm run build  # required production JSX transform
+npm run test:extension             # build + manifest/artifact contract
+npm run verify                     # rules plus extension contract
 npx playwright install chromium   # once, for browser checks
 npm run test:browser               # isolated server/context; screenshots in test-results/
 ```

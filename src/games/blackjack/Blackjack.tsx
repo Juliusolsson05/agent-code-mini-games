@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import type { AgentCodeApiV1 } from 'agent-code-extension-api'
+import type { MiniGamesApi } from '../../api'
 
 import { ChipFace } from '../../assets/svg/ChipFace'
 import { CHIP_VALUES } from '../../shared/chipPalette'
@@ -72,7 +72,7 @@ function roundStatus(state: BJState | null): { title: string; detail: string; to
   }
 }
 
-export function Blackjack({ api, audio, onExit }: { api: AgentCodeApiV1; audio: GameAudio; onExit: () => void }) {
+export function Blackjack({ api, audio, onExit }: { api: MiniGamesApi; audio: GameAudio; onExit: () => void }) {
   const { state, game } = useBlackjack(api, audio)
   const [muted, setMuted] = useState(() => audio.isMuted)
   const [showSettings, setShowSettings] = useState(false)
