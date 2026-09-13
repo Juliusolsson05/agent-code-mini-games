@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AgentCodeApiV1 } from 'agent-code-extension-api'
+import type { MiniGamesApi } from '../../api'
 
 import type { GameAudio } from '../../audio'
 import { BlackjackGame, type BJState } from './engine'
@@ -7,7 +7,7 @@ import { BlackjackGame, type BJState } from './engine'
 /** Owns one BlackjackGame for the life of the component and mirrors its state. The
  *  game is created in an effect (not during render) so its emits never fire mid-render. */
 export function useBlackjack(
-  api: AgentCodeApiV1,
+  api: MiniGamesApi,
   audio: GameAudio,
 ): { state: BJState | null; game: BlackjackGame | null } {
   const [state, setState] = useState<BJState | null>(null)

@@ -1,6 +1,6 @@
-// A tiny external store for which screen is showing. Lives outside React so a
-// contributed command (games.blackjack) invoked in the frame can flip the screen
-// without a React handle — the App subscribes via useSyncExternalStore.
+// A tiny external store for which screen is showing. The host-selected v2 view id
+// seeds it before React mounts, then launcher/back controls use the same path. This
+// keeps direct palette launches and in-modal navigation on one source of truth.
 export type Screen = 'launcher' | 'blackjack' | 'snake' | 'minesweeper'
 
 type Listener = () => void

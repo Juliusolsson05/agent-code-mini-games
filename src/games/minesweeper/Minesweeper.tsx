@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
-import type { AgentCodeApiV1 } from 'agent-code-extension-api'
+import type { MiniGamesApi } from '../../api'
 
 import { Face, Flag, LedCounter, Mine, type FaceState } from '../../assets/svg/MinesweeperGlyphs'
 import { LEVELS, MinesweeperGame, type Cell, type Level, type MinesweeperSnapshot } from './engine/game'
@@ -36,7 +36,7 @@ function cellLabel(cell: Cell, index: number, cols: number): string {
   return `${position}, ${cell.adjacent ? `${cell.adjacent} adjacent ${cell.adjacent === 1 ? 'mine' : 'mines'}` : 'clear'}`
 }
 
-export function Minesweeper({ api, onExit }: { api: AgentCodeApiV1; onExit: () => void }) {
+export function Minesweeper({ api, onExit }: { api: MiniGamesApi; onExit: () => void }) {
   const gameRef = useRef<MinesweeperGame | null>(null)
   const [snap, setSnap] = useState<MinesweeperSnapshot | null>(null)
   const [bestLoaded, setBestLoaded] = useState(false)

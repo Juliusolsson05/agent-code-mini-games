@@ -1,4 +1,4 @@
-import type { AgentCodeApiV1 } from 'agent-code-extension-api'
+import type { MiniGamesApi } from '../../api'
 
 import type { Rank, Suit } from '../../assets/svg/suits'
 
@@ -148,7 +148,7 @@ export class BlackjackGame {
   private saveQueue: Promise<void> = Promise.resolve()
 
   constructor(
-    private api: AgentCodeApiV1,
+    private api: MiniGamesApi,
     private onChange: (state: BJState) => void,
     private sfx: {
       deal: () => void

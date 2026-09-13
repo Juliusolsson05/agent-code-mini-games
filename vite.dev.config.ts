@@ -9,7 +9,8 @@ import { defineConfig } from 'vite'
 // transform instead of jsxDEV. Here we want plain dev mode, so editing any file under
 // src/ hot-reloads in the browser (React components patch in place; the imperative
 // Three.js scene triggers a fast full reload). The shipped extension is still built by
-// `npm run build` → dist/index.js; nothing in dev/ or this config is ever bundled in.
+// `npm run build` into separate v2 runtime/view modules; nothing in dev/ or this
+// config is ever bundled in.
 export default defineConfig({
   plugins: [
     react(),

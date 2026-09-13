@@ -1,7 +1,7 @@
 {
   "name": "agent-code-mini-games",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "description": "A little arcade inside Agent Code — garden Snake, 3D Blackjack, and classic Minesweeper.",
   "scripts": {
@@ -10,6 +10,8 @@
     "dev:web": "vite --config vite.dev.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "node dev/test.mjs",
+    "test:extension": "NODE_ENV=production npm run build && node --test testing/extension-contract.test.mjs",
+    "verify": "npm test && npm run test:extension",
     "test:browser": "node dev/browser-check.mjs"
   },
   "dependencies": {
@@ -22,7 +24,7 @@
     "@types/react-dom": "^18.3.0",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "agent-code-extension-api": "git+https://github.com/Juliusolsson05/agent-code-extension-api.git#v0.2.0",
+    "agent-code-extension-api": "git+https://github.com/Juliusolsson05/agent-code-extension-api.git#9c30b9199ccb692de19673baa936e20154578080",
     "esbuild": "^0.21.5",
     "playwright": "^1.63.0",
     "typescript": "^5.5.0",

@@ -1,4 +1,4 @@
-import type { AgentCodeApiV1, JsonValue, Disposable, ExtensionModule, ViewMount } from 'agent-code-extension-api'
+import type { AgentCodeApiV1, JsonValue, ViewContext, ViewModule } from 'agent-code-extension-api'
 
 import { router } from '../src/router'
 import { mountMiniGames } from '../src/view/mount'
@@ -6,7 +6,8 @@ import { mountMiniGames } from '../src/view/mount'
 // ---------------------------------------------------------------------------------
 // Dev harness — browser-only, NOT shipped.
 //
-// The extension that actually ships is `dist/index.js` (built with `npm run build`).
+// The extension that actually ships is `dist/runtime.js` plus `dist/view.js`
+// (built with `npm run build`).
 // This file exists solely so `npm run dev:web` gives us live-reload iteration in
 // Chrome without rebuilding + reinstalling into Agent Code on every tweak — which is
 // the slow loop that made the WebGL Blackjack painful to tune.
@@ -78,6 +79,31 @@ const devApi: AgentCodeApiV1 = {
   },
 }
 
+const viewIdFor = (game: string | null): string =>
+  game === 'snake' || game === 'blackjack' || game === 'minesweeper'
+    ? `mini-games.${game}`
+    : 'mini-games.open'
+
+const devViewContext = (game: string | null): ViewContext => ({
+  api: {
+    ...devApi,
+    extension: { id: 'mini-games', apiVersion: 2 },
+    // Mini Games is Tier 0 and never calls these methods. Keeping explicit
+    // rejecting stubs makes the browser harness structurally faithful without
+    // pretending it can reproduce Agent Code's session-scoped filesystem gate.
+    files: {
+      readText: async () => { throw new Error('Project files are unavailable in the browser harness') },
+      writeText: async () => { throw new Error('Project files are unavailable in the browser harness') },
+    },
+  },
+  view: { id: viewIdFor(game), instanceId: 'browser-development-view' },
+  runtime: {
+    state: () => undefined,
+    request: async () => undefined,
+    subscribe: () => () => {},
+  },
+})
+
 // Open the arcade by default, with direct routes for focused iteration.
 const requested = new URLSearchParams(location.search).get('game')
 if (
@@ -94,28 +120,14 @@ if (
 const host = document.getElementById('app')
 if (!host) throw new Error('dev harness: #app root missing')
 if (new URLSearchParams(location.search).get('build') === 'production') {
-  // Exercise the exact committed entry point as well as the source/HMR path. Vite
-  // serves this self-contained file without rebundling it; registering commands and
-  // mounting the view mirrors the host lifecycle without pretending to test Electron.
-  const entry = '/dist/index.js'
-  const extension = await import(/* @vite-ignore */ entry) as ExtensionModule
-  let mount: ViewMount | undefined
-  const commands = new Map<string, () => void | Promise<void>>()
-  const subscriptions: Disposable[] = []
-  await extension.activate({ api: devApi, subscriptions,
-    registerView: (_id, view) => { mount = view; return { dispose() {} } },
-    registerCommand: (id, run) => { commands.set(id, run); return { dispose() { commands.delete(id) } } },
-  })
-  if (requested) await commands.get(`mini-games.${requested}`)?.()
-  if (!mount) throw new Error('packaged extension did not register its view')
-  const dispose = (mount as ViewMount)(host)
-  window.addEventListener('beforeunload', () => {
-    dispose?.()
-    for (const subscription of subscriptions.reverse()) subscription.dispose()
-    void extension.deactivate?.()
-  }, { once: true })
+  // Exercise the exact committed v2 view artifact as well as the source/HMR path.
+  // Agent Code owns command-to-modal routing; the selected view id is the same
+  // launch intent the real host passes after a palette command.
+  const module = await import(/* @vite-ignore */ '/dist/view.js') as { default: ViewModule }
+  const dispose = module.default.mount(host, devViewContext(requested))
+  window.addEventListener('beforeunload', () => dispose?.(), { once: true })
 } else {
-  const dispose = mountMiniGames(devApi)(host)
+  const dispose = mountMiniGames(host, devViewContext(requested))
   window.addEventListener('beforeunload', () => dispose?.(), { once: true })
 }
 
