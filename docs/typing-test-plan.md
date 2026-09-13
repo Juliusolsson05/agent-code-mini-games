@@ -117,7 +117,8 @@ The engine is pure state with no DOM and no timers of its own, and time and rand
 
 - [x] Issue #10 created; worktree `feat/typing-test` from `origin/main`.
 - [x] Word list source chosen and licensing checked.
-- [ ] Word list generated with attribution.
-- [ ] Engine and tests.
-- [ ] View, styles, launcher art, integration.
-- [ ] Docs, verification, PR.
+- [x] Word list generated with attribution: 10,000 unique plain words from wordfreq 3.1.1, with no blocklisted words and only "a" and "i" as single letters.
+- [x] Engine and tests: `npm test` passes 29 tests (7 new).
+- [x] View, styles, launcher art, integration: typecheck, production build, and the manifest/artifact contract all pass.
+- [x] Browser checks: `npm run test:browser` passes with local Chrome. That covers typing, correction, results, Tab restart, host focus isolation, saved settings, and all four games in the production bundle.
+- [ ] PR opened; merge and release await approval.

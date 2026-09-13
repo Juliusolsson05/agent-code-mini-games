@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BlackjackArt, MinesweeperArt, SnakeArt } from '../assets/svg/GameArt'
+import { BlackjackArt, MinesweeperArt, SnakeArt, TypingArt } from '../assets/svg/GameArt'
 import type { Screen } from '../router'
 
 type Game = {
@@ -15,6 +15,7 @@ const GAMES: Game[] = [
   { screen: 'snake', name: 'Snake', genre: 'ARCADE', line: 'One more apple. One more turn.', art: <SnakeArt />, marquee: '#83b549', number: '01' },
   { screen: 'blackjack', name: 'Blackjack', genre: 'CARD TABLE', line: 'Take a seat. Play your hand.', art: <BlackjackArt />, marquee: '#dab268', number: '02' },
   { screen: 'minesweeper', name: 'Minesweeper', genre: 'PUZZLE', line: 'A clear head. A careful click.', art: <MinesweeperArt />, marquee: '#e18554', number: '03' },
+  { screen: 'typing', name: 'Typing Test', genre: 'SPEED', line: 'Fast fingers. Clean words.', art: <TypingArt />, marquee: '#f2c94c', number: '04' },
 ]
 
 /** The shared frame belongs to the host theme; each preview promises the actual game
@@ -29,7 +30,7 @@ export function Launcher({ onPlay }: { onPlay: (screen: Screen) => void }) {
           <h1 className="mg-mark">Mini Games<span aria-hidden="true">.</span></h1>
           <p className="mg-intro">Pick a favorite. Make it a good break.</p>
         </div>
-        <span className="mg-head-note">THREE GAMES<br />ALL YOURS</span>
+        <span className="mg-head-note">FOUR GAMES<br />ALL YOURS</span>
       </header>
       <div className="mg-grid">
         {GAMES.map(game => (

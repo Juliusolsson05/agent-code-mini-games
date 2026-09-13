@@ -1,15 +1,16 @@
 {
   "id": "mini-games",
   "name": "Mini Games",
-  "description": "A little arcade inside Agent Code — garden Snake, 3D Blackjack, and classic Minesweeper.",
-  "version": "0.8.0",
+  "description": "A little arcade inside Agent Code — garden Snake, 3D Blackjack, classic Minesweeper, and a typing test.",
+  "version": "0.9.0",
   "apiVersion": 2,
   "entry": "dist/runtime.js",
   "activationEvents": [
     "onView:mini-games.open",
     "onView:mini-games.blackjack",
     "onView:mini-games.snake",
-    "onView:mini-games.minesweeper"
+    "onView:mini-games.minesweeper",
+    "onView:mini-games.typing"
   ],
   "contributes": {
     "commands": [
@@ -57,6 +58,20 @@
           "classic",
           "windows"
         ]
+      },
+      {
+        "id": "mini-games.typing",
+        "title": "Play Typing Test",
+        "keywords": [
+          "typing",
+          "typing test",
+          "wpm",
+          "words per minute",
+          "keyboard",
+          "speed",
+          "practice",
+          "monkeytype"
+        ]
       }
     ],
     "views": [
@@ -81,6 +96,12 @@
       {
         "id": "mini-games.minesweeper",
         "title": "Minesweeper",
+        "mount": "modal",
+        "entry": "dist/view.js"
+      },
+      {
+        "id": "mini-games.typing",
+        "title": "Typing Test",
         "mount": "modal",
         "entry": "dist/view.js"
       }

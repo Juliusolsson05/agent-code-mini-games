@@ -4,6 +4,7 @@ import type { GameAudio } from './audio'
 import { Blackjack } from './games/blackjack/Blackjack'
 import { Minesweeper } from './games/minesweeper/Minesweeper'
 import { Snake } from './games/snake/Snake'
+import { TypingTest } from './games/typing/TypingTest'
 import { Launcher } from './launcher/Launcher'
 import { router } from './router'
 
@@ -19,6 +20,8 @@ export function App({ api, audio }: { api: MiniGamesApi; audio: GameAudio }) {
         <Snake api={api} onExit={() => router.show('launcher')} />
       ) : screen === 'minesweeper' ? (
         <Minesweeper api={api} onExit={() => router.show('launcher')} />
+      ) : screen === 'typing' ? (
+        <TypingTest api={api} onExit={() => router.show('launcher')} />
       ) : (
         <Launcher onPlay={s => router.show(s)} />
       )}

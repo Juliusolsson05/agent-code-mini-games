@@ -80,7 +80,7 @@ const devApi: AgentCodeApiV1 = {
 }
 
 const viewIdFor = (game: string | null): string =>
-  game === 'snake' || game === 'blackjack' || game === 'minesweeper'
+  game === 'snake' || game === 'blackjack' || game === 'minesweeper' || game === 'typing'
     ? `mini-games.${game}`
     : 'mini-games.open'
 
@@ -110,7 +110,8 @@ if (
   requested === 'launcher' ||
   requested === 'snake' ||
   requested === 'blackjack' ||
-  requested === 'minesweeper'
+  requested === 'minesweeper' ||
+  requested === 'typing'
 ) {
   router.show(requested)
 } else {

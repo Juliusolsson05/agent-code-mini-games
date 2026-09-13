@@ -37,7 +37,7 @@ await page.addInitScript(() => {
 
 try {
   await open('launcher')
-  assert.equal(await page.locator('.mg-cab').count(),3)
+  assert.equal(await page.locator('.mg-cab').count(),4)
   await shot('launcher')
   await button('Play Snake').click()
   await page.locator('.sk-root').waitFor()
@@ -85,6 +85,39 @@ try {
   await button('Pause game').click()
   await button('Resume game').waitFor()
   console.log('PASS Snake: pickup, pause, focus isolation, replay, records, pace, swipe')
+
+  await open('typing')
+  await page.locator('.tt-root').waitFor()
+  await shot('typing-ready')
+  const exact = name => page.getByRole('button',{name,exact:true})
+  await exact('words').click()
+  await exact('10 words').click()
+  const typingWords = await page.locator('[data-word]').evaluateAll(nodes => nodes.map(node => node.textContent))
+  assert.equal(typingWords.length,10)
+  await page.locator('.tt-surface').focus()
+  // A deliberate slip, corrected with Backspace: accuracy must still record the mistake.
+  await page.keyboard.press('#')
+  assert.equal(await page.locator('.tt-root').getAttribute('data-status'),'running')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type(typingWords.join(' '))
+  await page.locator('.tt-results').waitFor()
+  assert.ok(Number(await page.locator('[data-stat="wpm"] strong').getAttribute('data-value'))>0)
+  assert.ok(Number(await page.locator('[data-stat="accuracy"] strong').getAttribute('data-value'))<100)
+  await shot('typing-result')
+  // Tab restarts from the results screen, where focus sits on Next test.
+  await page.keyboard.press('Tab')
+  await page.locator('.tt-surface').waitFor()
+  assert.equal(await page.locator('.tt-root').getAttribute('data-status'),'ready')
+  // A host input keeps its keystrokes; the test only claims keys nothing else owns.
+  await page.evaluate(() => {
+    const input=document.createElement('input');input.id='typing-host-input';document.body.append(input);input.focus()
+  })
+  await page.keyboard.type('host')
+  assert.equal(await page.locator('#typing-host-input').inputValue(),'host')
+  assert.equal(await page.locator('.tt-root').getAttribute('data-status'),'ready')
+  await open('typing')
+  assert.equal(await exact('10 words').getAttribute('aria-pressed'),'true')
+  console.log('PASS Typing Test: words mode, correction, results, tab restart, host focus isolation, saved settings')
 
   // Real-time input remains covered by Snake above. For the 3D table, advance the
   // real game's timers/RAF explicitly. Continuous shadow rendering on a software
@@ -225,14 +258,14 @@ try {
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+60000))
   controlledClock = true
   await page.goto(`${base}dev/?build=production&game=launcher`)
-  for(const [name,selector] of [['Snake','.sk-root'],['Blackjack','.bj-root'],['Minesweeper','.mine-root']]) {
+  for(const [name,selector] of [['Snake','.sk-root'],['Blackjack','.bj-root'],['Minesweeper','.mine-root'],['Typing Test','.tt-root']]) {
     await button(`Play ${name}`).click()
     await page.locator(selector).waitFor()
     await shot(`packaged-${name.toLowerCase()}`)
     await button(name==='Blackjack'?'Back to games':'Arcade').click()
   }
   assert.deepEqual(errors,[])
-  console.log('PASS production bundle: all three games mount and navigate; no page errors')
+  console.log('PASS production bundle: all four games mount and navigate; no page errors')
 } finally {
   await context.close()
   await browser.close()

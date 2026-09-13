@@ -3,3 +3,5 @@ test-results/
 package-lock.json
 .DS_Store
 *.log
+# Python environment used only by dev/generate-typing-words.py.
+.venv-words/

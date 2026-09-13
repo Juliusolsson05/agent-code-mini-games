@@ -22,9 +22,10 @@ const INITIAL_SCREEN: Record<string, Screen> = {
   'mini-games.blackjack': 'blackjack',
   'mini-games.snake': 'snake',
   'mini-games.minesweeper': 'minesweeper',
+  'mini-games.typing': 'typing',
 }
 
-/** The API v2 view mount: one built module backs four declarative modal targets.
+/** The API v2 view mount: one built module backs five declarative modal targets.
  *  The host-selected view id is the launch intent, so a cold “Play Snake” command
  *  opens Snake directly without a runtime-to-DOM side channel. */
 export function mountMiniGames(element: HTMLElement, context: ViewContext): () => void {

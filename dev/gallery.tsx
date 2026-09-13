@@ -5,6 +5,7 @@ import { GameAudio } from '../src/audio'
 import { Blackjack } from '../src/games/blackjack/Blackjack'
 import { Minesweeper } from '../src/games/minesweeper/Minesweeper'
 import { Snake } from '../src/games/snake/Snake'
+import { TypingTest } from '../src/games/typing/TypingTest'
 import { Launcher } from '../src/launcher/Launcher'
 import styles from '../src/styles.css?inline'
 
@@ -131,6 +132,7 @@ mountAt('s-launcher', <Launcher onPlay={noop} />)
 mountAt('s-blackjack', <Blackjack api={api} audio={audio} onExit={noop} />)
 mountAt('s-snake', <Snake api={api} onExit={noop} />)
 mountAt('s-minesweeper', <Minesweeper api={api} onExit={noop} />)
+mountAt('s-typing', <TypingTest api={api} onExit={noop} />)
 
 // --- theme switcher --------------------------------------------------------------
 
