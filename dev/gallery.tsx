@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 
 import { GameAudio } from '../src/audio'
 import { Blackjack } from '../src/games/blackjack/Blackjack'
+import { Blockfall } from '../src/games/blockfall/Blockfall'
 import { Minesweeper } from '../src/games/minesweeper/Minesweeper'
 import { Snake } from '../src/games/snake/Snake'
 import { TypingTest } from '../src/games/typing/TypingTest'
@@ -133,6 +134,7 @@ mountAt('s-blackjack', <Blackjack api={api} audio={audio} onExit={noop} />)
 mountAt('s-snake', <Snake api={api} onExit={noop} />)
 mountAt('s-minesweeper', <Minesweeper api={api} onExit={noop} />)
 mountAt('s-typing', <TypingTest api={api} onExit={noop} />)
+mountAt('s-blockfall', <Blockfall api={api} onExit={noop} />)
 
 // --- theme switcher --------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 // A tiny external store for which screen is showing. The host-selected v2 view id
 // seeds it before React mounts, then launcher/back controls use the same path. This
 // keeps direct palette launches and in-modal navigation on one source of truth.
-export type Screen = 'launcher' | 'blackjack' | 'snake' | 'minesweeper' | 'typing'
+export type Screen = 'launcher' | 'blackjack' | 'snake' | 'minesweeper' | 'typing' | 'blockfall'
 
 type Listener = () => void
 

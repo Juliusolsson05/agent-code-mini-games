@@ -222,8 +222,8 @@ Every sound is pitch-jittered so repeated actions never sound identical, and the
 ## Progress
 
 - [x] Issue #12 created; worktree `feat/blockfall` from `origin/main` (v0.9.0).
-- [ ] Engine (pieces, rules, scoring, modes) with tests.
-- [ ] Audio palette.
-- [ ] Renderer and effects.
-- [ ] Component, styles, launcher art and integration.
-- [ ] Docs, verification and PR.
+- [x] Engine (pieces, rules, scoring, modes) with tests.
+- [x] Audio palette.
+- [x] Renderer and effects.
+- [x] Component, styles, launcher art and integration.
+- [x] Docs, verification and PR (tests, typecheck, extension contract and the Chrome browser check pass; screenshots reviewed).
